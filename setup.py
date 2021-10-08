@@ -17,7 +17,12 @@ setuptools.setup(
     url=URL,
     packages=["polanyi"],
     python_requires=">=3.8",
-    install_requires=["numpy"],
+    install_requires=["numpy", "scipy"],
+    entry_points={
+        "console_scripts": [
+            "polanyi_xtb_interface=polanyi.xtb_interface:main",
+        ]
+    },
     license="MIT",
     classifiers=[
         "Programming Language :: Python :: 3",

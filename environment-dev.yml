@@ -1,0 +1,19 @@
+channels:
+  - conda-forge
+dependencies:
+- black
+- darglint
+- flake8
+- flake8-annotations
+- flake8-black
+- flake8-bugbear
+- flake8-docstrings
+- flake8-import-order
+- isort
+- mypy
+- nox
+- pip
+- pytest
+- pytest-cov
+- python>=3.8
+- sphinx

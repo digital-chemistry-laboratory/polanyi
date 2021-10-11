@@ -6,7 +6,7 @@ from typing import Iterable, Mapping, Optional, overload, Tuple, Union
 
 import numpy as np
 
-from polanyi.typing import Array1D, Array3D, ArrayLike1D, ArrayLike2D
+from polanyi.typing import Array2D, ArrayLike1D, ArrayLike2D
 
 
 @overload
@@ -14,7 +14,7 @@ def evb_eigenvalues(
     energies: ArrayLike1D,
     *,
     coupling: Union[float, Mapping[Tuple[int, int], float]] = 0.0,
-) -> Tuple[Array1D, Array1D]:
+) -> Tuple[list[float], list[int]]:
     ...
 
 
@@ -24,7 +24,7 @@ def evb_eigenvalues(
     *,
     gradients: Iterable[ArrayLike2D],
     coupling: Union[float, Mapping[Tuple[int, int], float]] = 0.0,
-) -> Tuple[Array1D, Array3D, Array1D]:
+) -> Tuple[list[float], list[Array2D], list[int]]:
     ...
 
 
@@ -34,7 +34,7 @@ def evb_eigenvalues(
     *,
     hessians: Iterable[ArrayLike2D],
     coupling: Union[float, Mapping[Tuple[int, int], float]] = 0.0,
-) -> Tuple[Array1D, Array3D, Array1D]:
+) -> Tuple[list[float], list[Array2D], list[int]]:
     ...
 
 
@@ -45,20 +45,20 @@ def evb_eigenvalues(
     gradients: Iterable[ArrayLike2D],
     hessians: Iterable[ArrayLike2D],
     coupling: Union[float, Mapping[Tuple[int, int], float]] = 0.0,
-) -> Tuple[Array1D, Array3D, Array3D, Array1D]:
+) -> Tuple[list[float], list[Array2D], list[Array2D], list[int]]:
     ...
 
 
-def evb_eigenvalues(
+def evb_eigenvalues(  # noqa: C901
     energies: ArrayLike1D,
     *,
     gradients: Optional[Iterable[ArrayLike2D]] = None,
     hessians: Optional[Iterable[ArrayLike2D]] = None,
     coupling: Union[float, Mapping[Tuple[int, int], float]] = 0.0,
 ) -> Union[
-    Tuple[Array1D, Array1D],
-    Tuple[Array1D, Array3D, Array1D],
-    Tuple[Array1D, Array3D, Array3D, Array1D],
+    Tuple[list[float], list[int]],
+    Tuple[list[float], list[Array2D], list[int]],
+    Tuple[list[float], list[Array2D], list[Array2D], list[int]],
 ]:
     """Returns EVB eigenvalues for energies and gradients.
 
@@ -89,10 +89,10 @@ def evb_eigenvalues(
     else:
         raise ValueError("Energies and coupling are not of compatible shapes.")
     eigenvalues, eigenvectors = np.linalg.eigh(h)
-    energies_ad = eigenvalues
+    energies_ad = eigenvalues.tolist()
 
     # Get diabatic state indices with highest weight for adiabatic states
-    indices = np.argsort(np.abs(eigenvectors), axis=0)[:, ::-1][0]
+    indices = np.argsort(np.abs(eigenvectors), axis=0)[:, ::-1][0].tolist()
 
     # Form matrix of gradients and diagonalize to get adiabatic gradients
     if gradients is not None:
@@ -101,7 +101,7 @@ def evb_eigenvalues(
         for i, gradient in enumerate(gradients):
             d_h[i, i] = gradient
         G = eigenvectors.T @ d_h @ eigenvectors
-        gradients_ad = G.diagonal()
+        gradients_ad = G.diagonal().tolist()
         if hessians is None:
             return energies_ad, gradients_ad, indices
 
@@ -112,7 +112,7 @@ def evb_eigenvalues(
         for i, hessian in enumerate(hessians):
             dd_h[i, i] = hessian
         H = eigenvectors.T @ dd_h @ eigenvectors
-        hessians_ad = H.diagonal()
+        hessians_ad = H.diagonal().tolist()
         if gradients is not None:
             return energies_ad, gradients_ad, hessians_ad, indices
         else:

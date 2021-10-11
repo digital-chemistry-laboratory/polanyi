@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 from collections.abc import Callable, MutableMapping, Sequence
+from contextlib import redirect_stderr, redirect_stdout
+from dataclasses import dataclass, field
 import functools
+from io import StringIO
 import os
 from os import PathLike
 from pathlib import Path
@@ -13,7 +16,6 @@ from typing import Any, Optional, Union
 
 import geometric
 from geometric.engine import ConicalIntersection
-from loguru import logger
 import numpy as np
 from pyscf import __config__, lib
 from pyscf.geomopt import as_pyscf_method, berny_solver, geometric_solver
@@ -22,15 +24,29 @@ from pyscf.gto import Mole
 
 from polanyi.data import BOHR_TO_ANGSTROM
 from polanyi.evb import evb_eigenvalues
-from polanyi.io import get_xyz_string
 from polanyi.typing import Array2D, ArrayLike2D
 from polanyi.utils import convert_elements
 from polanyi.xtb import parse_engrad, run_xtb, XTBCalculator
 
 
+@dataclass
+class OptResults:
+    """Results of PySCF geometry optimization."""
+
+    coordinates: list[Array2D] = field(default_factory=list)
+    energies_diabatic: list[list[float]] = field(default_factory=list)
+    energies_adiabatic: list[list[float]] = field(default_factory=list)
+    gradients_diabatic: list[list[Array2D]] = field(default_factory=list)
+    gradients_adiabatic: list[list[Array2D]] = field(default_factory=list)
+    indices: list[list[int]] = field(default_factory=list)
+    stdout: str = ""
+    stderr: str = ""
+
+
 def e_g_function(
     mol: "Mole",
     topologies: Sequence[bytes],
+    results: OptResults,
     keywords: Optional[list[str]] = None,
     xcontrol_keywords: Optional[MutableMapping[str, list[str]]] = None,
     e_shift: float = 0,
@@ -76,23 +92,19 @@ def e_g_function(
     energies_ad, gradients_ad, indices = evb_eigenvalues(
         energies, gradients=gradients, coupling=coupling
     )
-    gradient_rms = np.sqrt(np.mean(gradients_ad[1] ** 2))
-    logger.info(
-        f"Idx: {indices[1]} Energies: {energies_ad[0]:10.6f} {energies_ad[1]:10.6f} "
-        f"Gradient RMS: {gradient_rms:10.6f}"
-    )
 
-    with open(path / "energies", "a") as f:
-        f.write(str(energies_ad[1]) + "\n")
-    with open(path / "gradients", "a") as f:
-        f.write(str(gradient_rms) + "\n")
-    xyz_string = get_xyz_string(elements, coordinates, comment=str(energy))
-    with open(path / "traj.xyz", "a") as f:
-        f.write(xyz_string)
-
+    # Clean up temporary directory
     if cleanup is True:
         for temp_dir in temp_dirs:
             temp_dir.cleanup()
+
+    # Store results
+    results.coordinates.append(coordinates * BOHR_TO_ANGSTROM)
+    results.energies_diabatic.append(energies)
+    results.energies_adiabatic.append(energies_ad)
+    results.gradients_diabatic.append(gradients)
+    results.gradients_adiabatic.append(gradients_ad)
+    results.indices.append(indices)
 
     return energies_ad[1], gradients_ad[1]
 
@@ -100,9 +112,9 @@ def e_g_function(
 def e_g_function_python(
     mol: "Mole",
     calculators: Sequence[XTBCalculator],
+    results: OptResults,
     e_shift: float = 0,
     coupling: float = 0,
-    results=None,
     path: Optional[Union[str, PathLike]] = None,
 ) -> tuple[float, Array2D]:
     """Find TS with GFN-FF."""
@@ -111,7 +123,6 @@ def e_g_function_python(
     else:
         path = Path(path)
     # Get coordinates
-    elements = mol.atom_charges()
     coordinates = np.ascontiguousarray(mol.atom_coords())
 
     energies = []
@@ -128,29 +139,14 @@ def e_g_function_python(
     energies_ad, gradients_ad, indices = evb_eigenvalues(
         energies, gradients=gradients, coupling=coupling
     )
-    gradient_rms = np.sqrt(np.mean(gradients_ad[1] ** 2))
-    logger.info(
-        f"Idx: {indices[1]} Energies: {energies_ad[0]:10.6f} {energies_ad[1]:10.6f} "
-        f"Gradient RMS: {gradient_rms:10.6f}"
-    )
 
-    with open(path / "energies", "a") as f:
-        f.write(str(energies_ad[1]) + "\n")
-    with open(path / "gradients", "a") as f:
-        f.write(str(gradient_rms) + "\n")
-    xyz_string = get_xyz_string(
-        elements, coordinates * BOHR_TO_ANGSTROM, comment=str(energy)
-    )
-    with open(path / "traj.xyz", "a") as f:
-        f.write(xyz_string)
-
-    if results is not None:
-        results["coordinates"].append(coordinates * BOHR_TO_ANGSTROM)
-        results["energies_diabatic"].append(energies)
-        results["energies_adiabatic"].append(energies_ad)
-        results["gradients_diabatic"].append(gradients)
-        results["gradients_adiabatic"].append(gradients_ad)
-        results["indices"].append(indices)
+    # Store results
+    results.coordinates.append(coordinates * BOHR_TO_ANGSTROM)
+    results.energies_diabatic.append(energies)
+    results.energies_adiabatic.append(energies_ad)
+    results.gradients_diabatic.append(gradients)
+    results.gradients_adiabatic.append(gradients_ad)
+    results.indices.append(indices)
 
     return energies_ad[1], gradients_ad[1]
 
@@ -184,13 +180,13 @@ def ts_from_gfnff(
     keywords: Optional[list[str]] = None,
     xcontrol_keywords: Optional[MutableMapping[str, list[str]]] = None,
     e_shift: float = 0,
-    coupling: float = 0,
+    coupling: float = 0.001,
     maxsteps: int = 100,
     callback: Optional[Callable[[dict[str, Any]], None]] = None,
     conv_params: Optional[dict[str, Any]] = None,
-    solver: str = "pyberny",
+    solver: str = "geometric",
     path: Optional[Union[str, PathLike]] = None,
-) -> Array2D:
+) -> OptResults:
     """Optimize TS with GFNFF."""
     if conv_params is None:
         conv_params = {}
@@ -199,12 +195,14 @@ def ts_from_gfnff(
     else:
         path = Path(path)
         path.mkdir(exist_ok=True)
+    results = OptResults()
 
     mole = get_pyscf_mole(elements, coordinates)
 
     e_g_partial = functools.partial(
         e_g_function,
         topologies=topologies,
+        results=results,
         keywords=keywords,
         xcontrol_keywords=xcontrol_keywords,
         e_shift=e_shift,
@@ -212,35 +210,21 @@ def ts_from_gfnff(
         path=path,
     )
 
-    (path / "traj.xyz").unlink(missing_ok=True)
-    (path / "energies").unlink(missing_ok=True)
-    (path / "gradients").unlink(missing_ok=True)
-
-    logger.remove()
-    logger.add(
-        path / "polanyi.log",
-        format="{message}",
-        filter="polanyi.pyscf",
-        level="INFO",
-        mode="w",
-    )
-    logger.info("Beginning TS optimization.")
-
     if solver == "pyberny":
         pyscf_solver = berny_solver
     elif solver == "geometric":
         pyscf_solver = geometric_solver
-    opt_mole = pyscf_solver.optimize(
-        as_pyscf_method(mole, e_g_partial),
-        maxsteps=maxsteps,
-        callback=callback,
-        **conv_params,
-    )
-    opt_coordinates: Array2D = (
-        np.ascontiguousarray(opt_mole.atom_coords()) * BOHR_TO_ANGSTROM
-    )
+    with redirect_stdout(StringIO()) as stdout, redirect_stderr(StringIO()) as stderr:
+        pyscf_solver.optimize(
+            as_pyscf_method(mole, e_g_partial),
+            maxsteps=maxsteps,
+            callback=callback,
+            **conv_params,
+        )
+    results.stdout = stdout.getvalue()
+    results.stderr = stderr.getvalue()
 
-    return opt_coordinates
+    return results
 
 
 def ts_from_gfnff_python(
@@ -248,14 +232,13 @@ def ts_from_gfnff_python(
     coordinates: ArrayLike2D,
     calculators: Sequence[XTBCalculator],
     e_shift: float = 0,
-    coupling: float = 0,
+    coupling: float = 0.001,
     maxsteps: int = 100,
     callback: Optional[Callable[[dict[str, Any]], None]] = None,
     conv_params: Optional[dict[str, Any]] = None,
-    solver: str = "pyberny",
-    results=None,
+    solver: str = "geometric",
     path: Optional[Union[str, PathLike]] = None,
-) -> Array2D:
+) -> OptResults:
     """Optimize TS with GFNFF."""
     if conv_params is None:
         conv_params = {}
@@ -264,56 +247,35 @@ def ts_from_gfnff_python(
     else:
         path = Path(path)
         path.mkdir(exist_ok=True)
-    if results is not None:
-        results["coordinates"] = []
-        results["energies_diabatic"] = []
-        results["energies_adiabatic"] = []
-        results["gradients_diabatic"] = []
-        results["gradients_adiabatic"] = []
-        results["indices"] = []
+    results = OptResults()
 
     mole = get_pyscf_mole(elements, coordinates)
 
     e_g_partial = functools.partial(
         e_g_function_python,
         calculators=calculators,
+        results=results,
         e_shift=e_shift,
         coupling=coupling,
-        results=results,
         path=path,
     )
-
-    (path / "traj.xyz").unlink(missing_ok=True)
-    (path / "energies").unlink(missing_ok=True)
-    (path / "gradients").unlink(missing_ok=True)
-
-    logger.remove()
-    logger.add(
-        path / "polanyi.log",
-        format="{message}",
-        filter="polanyi.pyscf",
-        level="INFO",
-        mode="w",
-    )
-    logger.info("Beginning TS optimization.")
 
     if solver == "pyberny":
         pyscf_solver = berny_solver
     elif solver == "geometric":
         pyscf_solver = geometric_solver
-    opt_mole = pyscf_solver.optimize(
-        as_pyscf_method(mole, e_g_partial),
-        maxsteps=maxsteps,
-        callback=callback,
-        **conv_params,
-    )
-    logger.info("TS optimization done.")
+    with redirect_stdout(StringIO()) as stdout, redirect_stderr(StringIO()) as stderr:
+        pyscf_solver.optimize(
+            as_pyscf_method(mole, e_g_partial),
+            maxsteps=maxsteps,
+            callback=callback,
+            **conv_params,
+        )
 
-    opt_coordinates: Array2D = (
-        np.ascontiguousarray(opt_mole.atom_coords()) * BOHR_TO_ANGSTROM
-    )
+    results.stdout = stdout.getvalue()
+    results.stderr = stderr.getvalue()
 
-    return opt_coordinates
+    return results
 
 
 def ts_from_gfnff_ci_python(
@@ -352,20 +314,6 @@ def ts_from_gfnff_ci_python(
         path=path,
     )
 
-    (path / "traj.xyz").unlink(missing_ok=True)
-    # (path / "energies").unlink(missing_ok=True)
-    # (path / "gradients").unlink(missing_ok=True)
-    #
-    # logger.remove()
-    # logger.add(
-    #    path / "polanyi.log",
-    #    format="{message}",
-    #    filter="polanyi.pyscf",
-    #    level="INFO",
-    #    mode="w",
-    # )
-    # logger.info("Beginning TS optimization.")
-
     _, opt_mole = optimize_ci(
         [as_pyscf_method(mole, e_g_partial_1), as_pyscf_method(mole, e_g_partial_2)],
         maxsteps=maxsteps,
@@ -374,7 +322,6 @@ def ts_from_gfnff_ci_python(
         callback=callback,
         **conv_params,
     )
-    logger.info("TS optimization done.")
 
     opt_coordinates: Array2D = (
         np.ascontiguousarray(opt_mole.atom_coords()) * BOHR_TO_ANGSTROM

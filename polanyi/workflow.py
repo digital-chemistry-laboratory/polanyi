@@ -1,25 +1,85 @@
 """Workflows."""
 from __future__ import annotations
 
-from collections.abc import Collection, MutableMapping
+from collections.abc import MutableMapping, Sequence
+from dataclasses import dataclass
 from os import PathLike
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Optional, Union
+from typing import Mapping, Optional, Union
 
 import numpy as np
 
 from polanyi.geometry import two_frags_from_bo
+from polanyi.pyscf import OptResults, ts_from_gfnff_python
 from polanyi.typing import Array1D, Array2D, ArrayLike2D
 from polanyi.xtb import opt_xtb, parse_energy, run_xtb, wbo_xtb, XTBCalculator
 
 
+@dataclass
+class Results:
+    """Results of TS optimization."""
+
+    opt_results: OptResults
+    coordinates_opt: Array2D
+    shift_results: Optional[ShiftResults] = None
+
+
+@dataclass
+class ShiftResults:
+    """Results of energy shift calculation."""
+
+    energy_shift: float
+    energy_diff_gfn: float
+    energy_diff_ff: float
+    energies_gfn: list[float]
+    energies_ff: list[float]
+
+
+def opt_ts_python(
+    elements: Union[Sequence[int], Sequence[str]],
+    coordinates: Sequence[Array2D],
+    coordinates_guess: Array2D,
+    e_shift: Optional[float] = None,
+    kw_calculators: Optional[Mapping] = None,
+    kw_shift: Optional[Mapping] = None,
+    kw_opt: Optional[Mapping] = None,
+) -> Results:
+    """Optimize transition state with xtb-python and PySCF."""
+    if kw_opt is None:
+        kw_opt = {}
+    if kw_shift is None:
+        kw_shift = {}
+    if kw_calculators is None:
+        kw_calculators = {}
+    calculators = setup_gfnff_calculators_python(
+        elements, coordinates, **kw_calculators
+    )
+    shift_results: Optional[ShiftResults]
+    if e_shift is None:
+        shift_results = calculate_e_shift_xtb_python(calculators, **kw_shift)
+        e_shift = shift_results.energy_shift
+    else:
+        shift_results = None
+    opt_results = ts_from_gfnff_python(
+        elements, coordinates_guess, calculators, e_shift=e_shift, **kw_opt
+    )
+
+    results = Results(
+        opt_results=opt_results,
+        coordinates_opt=opt_results.coordinates[-1],
+        shift_results=shift_results,
+    )
+
+    return results
+
+
 def setup_gfnff_calculators(
-    elements: Union[Collection[int], Collection[str]],
-    coordinates: Collection[ArrayLike2D],
+    elements: Union[Sequence[int], Sequence[str]],
+    coordinates: Sequence[ArrayLike2D],
     keywords: Optional[list[str]] = None,
     xcontrol_keywords: Optional[MutableMapping[str, list[str]]] = None,
-    paths: Optional[Collection[Union[str, PathLike]]] = None,
+    paths: Optional[Sequence[Union[str, PathLike]]] = None,
 ) -> list[bytes]:
     """Sets up force fields for GFNFF calculation."""
     if paths is None:
@@ -49,22 +109,24 @@ def setup_gfnff_calculators(
 
 
 def setup_gfnff_calculators_python(
-    elements: Union[Collection[int], Collection[str]],
-    coordinates: Collection[ArrayLike2D],
+    elements: Union[Sequence[int], Sequence[str]],
+    coordinates: Sequence[ArrayLike2D],
     charge: int = 0,
     solvent: Optional[str] = None,
 ) -> list[XTBCalculator]:
     """Sets up force fields for GFNFF calculation."""
     calculators = []
     for coordinates_ in coordinates:
-        calculator = XTBCalculator(elements, coordinates_, charge=charge)
+        calculator = XTBCalculator(
+            elements, coordinates_, charge=charge, solvent=solvent
+        )
         _ = calculator.sp(return_gradient=False)
         calculators.append(calculator)
     return calculators
 
 
 def opt_frags_from_complex(
-    elements: Union[Collection[int], Collection[str]],
+    elements: Union[Sequence[int], Sequence[str]],
     coordinates: ArrayLike2D,
     keywords: Optional[list[str]] = None,
     xcontrol_keywords: Optional[MutableMapping[str, list[str]]] = None,
@@ -100,11 +162,11 @@ def opt_frags_from_complex(
 
 
 def opt_constrained_complex(
-    elements: Union[Collection[int], Collection[str]],
+    elements: Union[Sequence[int], Sequence[str]],
     coordinates: ArrayLike2D,
     distance_constraints: Optional[MutableMapping[tuple[int, int], float]] = None,
-    atom_constraints: Optional[Collection[int]] = None,
-    fix_atoms: Optional[Collection[int]] = None,
+    atom_constraints: Optional[Sequence[int]] = None,
+    fix_atoms: Optional[Sequence[int]] = None,
     keywords: Optional[list[str]] = None,
     xcontrol_keywords: Optional[MutableMapping[str, list[str]]] = None,
     fc: Optional[float] = None,
@@ -146,14 +208,14 @@ def opt_constrained_complex(
 
 
 def calculate_e_shift_xtb(
-    elements: Union[Collection[int], Collection[str]],
-    coordinates: Collection[ArrayLike2D],
-    topologies: Collection[bytes],
+    elements: Union[Sequence[int], Sequence[str]],
+    coordinates: Sequence[ArrayLike2D],
+    topologies: Sequence[bytes],
     keywords_ff: Optional[list[str]] = None,
     keywords_sp: Optional[list[str]] = None,
     xcontrol_keywords_ff: Optional[MutableMapping[str, list[str]]] = None,
     xcontrol_keywords_sp: Optional[MutableMapping[str, list[str]]] = None,
-    paths: Optional[Collection[Union[str, PathLike]]] = None,
+    paths: Optional[Sequence[Union[str, PathLike]]] = None,
 ) -> tuple[float, float, float]:
     """Calculate energy shift between geometries."""
     if paths is None:
@@ -200,8 +262,8 @@ def calculate_e_shift_xtb(
 
 
 def calculate_e_shift_xtb_python(
-    calculators: Collection[XTBCalculator], method: str = ("GFN2-xTB")
-) -> tuple[float, float, float]:
+    calculators: Sequence[XTBCalculator], method: str = ("GFN2-xTB")
+) -> ShiftResults:
     """Calculate energy shift between geometries."""
     energies_gfn = []
     energies_ff = []
@@ -217,8 +279,16 @@ def calculate_e_shift_xtb_python(
         energy_gfn = calculator_sp.sp(return_gradient=False)
         energies_gfn.append(energy_gfn)
         energies_ff.append(energy_ff)
-    e_diff_gfn = energies_gfn[-1] - energies_gfn[0]
-    e_diff_ff = energies_ff[-1] - energies_ff[0]
-    e_shift = e_diff_gfn - e_diff_ff
+    energy_diff_gfn = energies_gfn[-1] - energies_gfn[0]
+    energy_diff_ff = energies_ff[-1] - energies_ff[0]
+    energy_shift = energy_diff_gfn - energy_diff_ff
 
-    return e_shift, e_diff_gfn, e_diff_ff
+    results = ShiftResults(
+        energy_shift=energy_shift,
+        energy_diff_gfn=energy_diff_gfn,
+        energy_diff_ff=energy_diff_ff,
+        energies_gfn=energies_gfn,
+        energies_ff=energies_ff,
+    )
+
+    return results

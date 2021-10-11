@@ -16,6 +16,7 @@ from typing import Literal, Optional, overload, Union
 from loguru import logger
 from morfeus.conformer import ConformerEnsemble
 import numpy as np
+from wurlitzer import pipes
 from xtb.interface import Calculator
 from xtb.utils import get_method, get_solvent
 
@@ -50,9 +51,10 @@ class XTBCalculator:
         elements = np.array(convert_elements(elements, output="numbers"))
         coordinates = np.ascontiguousarray(coordinates)
         coordinates_au: Array2D = coordinates * ANGSTROM_TO_BOHR
-        calculator = Calculator(
-            get_method(method), elements, coordinates_au, charge=charge
-        )
+        with pipes() as _:
+            calculator = Calculator(
+                get_method(method), elements, coordinates_au, charge=charge
+            )
         if solvent is not None:
             xtb_solvent = get_solvent(solvent)
             if xtb_solvent is None:
@@ -100,7 +102,8 @@ class XTBCalculator:
 
     def sp(self, return_gradient: bool = True) -> Union[float, tuple[float, Array2D]]:
         """Do single point calculation and return result."""
-        results = self.calculator.singlepoint()
+        with pipes() as _:
+            results = self.calculator.singlepoint()
         energy: float = results.get_energy()
 
         if return_gradient is True:

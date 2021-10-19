@@ -51,9 +51,12 @@ class XTBCalculator:
         elements = np.array(convert_elements(elements, output="numbers"))
         coordinates = np.ascontiguousarray(coordinates)
         coordinates_au: Array2D = coordinates * ANGSTROM_TO_BOHR
+        calc_method = get_method(method)
+        if calc_method is None:
+            raise ValueError("Calculation method not valid")
         with pipes() as _:
             calculator = Calculator(
-                get_method(method), elements, coordinates_au, charge=charge
+                calc_method, elements, coordinates_au, charge=charge
             )
         if solvent is not None:
             xtb_solvent = get_solvent(solvent)
@@ -86,6 +89,11 @@ class XTBCalculator:
     def coordinates(self) -> Array2D:
         """Coordinates (Å)."""
         return self._coordinates
+
+    @coordinates.setter
+    def coordinates(self, coordinates: Array2D) -> None:
+        self.calculator.update(coordinates * ANGSTROM_TO_BOHR)
+        self._coordinates = coordinates
 
     @property
     def method(self) -> str:
@@ -217,7 +225,7 @@ def opt_xtb(
     keywords.add("--opt")
 
     if path is None:
-        temp_dir = TemporaryDirectory()
+        temp_dir = TemporaryDirectory(dir=config.TMP_DIR)
         xtb_path = Path(temp_dir.name)
     else:
         xtb_path = Path(path)
@@ -249,7 +257,7 @@ def opt_crest(
     keywords = set([keyword.strip().lower() for keyword in keywords])
 
     if path is None:
-        temp_dir = TemporaryDirectory()
+        temp_dir = TemporaryDirectory(dir=config.TMP_DIR)
         crest_path = Path(temp_dir.name)
     else:
         crest_path = Path(path)
@@ -277,7 +285,7 @@ def wbo_xtb(
 ) -> Array2D:
     """Returns wbo bond order matrix from xtb."""
     if path is None:
-        temp_dir = TemporaryDirectory()
+        temp_dir = TemporaryDirectory(dir=config.TMP_DIR)
         xtb_path = Path(temp_dir.name)
     else:
         xtb_path = Path(path)
@@ -309,7 +317,7 @@ def ts_from_gfnff_xtb(
 ) -> Array2D:
     """Optimize TS with GFNFF."""
     if path is None:
-        temp_dir = TemporaryDirectory()
+        temp_dir = TemporaryDirectory(dir=config.TMP_DIR)
         path = Path(temp_dir.name)
         cleanup = True
     else:

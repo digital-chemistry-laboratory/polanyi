@@ -22,6 +22,7 @@ from pyscf.geomopt import as_pyscf_method, berny_solver, geometric_solver
 from pyscf.grad.rhf import GradientsMixin
 from pyscf.gto import Mole
 
+from polanyi import config
 from polanyi.data import BOHR_TO_ANGSTROM
 from polanyi.evb import evb_eigenvalues
 from polanyi.typing import Array2D, ArrayLike2D
@@ -58,7 +59,9 @@ def e_g_function(
     topologies = list(topologies)
     if path is None:
         path = Path.cwd()
-        temp_dirs = [TemporaryDirectory() for i in range(len(topologies))]
+        temp_dirs = [
+            TemporaryDirectory(dir=config.TMP_DIR) for i in range(len(topologies))
+        ]
         xtb_paths = [path / temp_dir.name for temp_dir in temp_dirs]
         cleanup = True
     else:
@@ -99,7 +102,7 @@ def e_g_function(
             temp_dir.cleanup()
 
     # Store results
-    results.coordinates.append(coordinates * BOHR_TO_ANGSTROM)
+    results.coordinates.append(coordinates)
     results.energies_diabatic.append(energies)
     results.energies_adiabatic.append(energies_ad)
     results.gradients_diabatic.append(gradients)
@@ -123,12 +126,12 @@ def e_g_function_python(
     else:
         path = Path(path)
     # Get coordinates
-    coordinates = np.ascontiguousarray(mol.atom_coords())
+    coordinates: np.ndarray = np.ascontiguousarray(mol.atom_coords()) * BOHR_TO_ANGSTROM
 
     energies = []
     gradients = []
     for calculator in calculators:
-        calculator.calculator.update(coordinates)
+        calculator.coordinates = coordinates
         energy, gradient = calculator.sp(return_gradient=True)
         energies.append(energy)
         gradients.append(gradient)
@@ -141,7 +144,7 @@ def e_g_function_python(
     )
 
     # Store results
-    results.coordinates.append(coordinates * BOHR_TO_ANGSTROM)
+    results.coordinates.append(coordinates)
     results.energies_diabatic.append(energies)
     results.energies_adiabatic.append(energies_ad)
     results.gradients_diabatic.append(gradients)
@@ -166,7 +169,7 @@ def e_g_function_ci_python(
     # Get coordinates
     coordinates = np.ascontiguousarray(mol.atom_coords())
 
-    calculator.calculator.update(coordinates)
+    calculator.coordinates = coordinates
     energy, gradient = calculator.sp(return_gradient=True)
     energy += e_shift
 

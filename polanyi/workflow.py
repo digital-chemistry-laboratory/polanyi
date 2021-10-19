@@ -10,6 +10,7 @@ from typing import Mapping, Optional, Union
 
 import numpy as np
 
+from polanyi import config
 from polanyi.geometry import two_frags_from_bo
 from polanyi.pyscf import OptResults, ts_from_gfnff_python
 from polanyi.typing import Array1D, Array2D, ArrayLike2D
@@ -83,7 +84,9 @@ def setup_gfnff_calculators(
 ) -> list[bytes]:
     """Sets up force fields for GFNFF calculation."""
     if paths is None:
-        temp_dirs = [TemporaryDirectory() for i in range(len(coordinates))]
+        temp_dirs = [
+            TemporaryDirectory(dir=config.TMP_DIR) for i in range(len(coordinates))
+        ]
         xtb_paths = [Path(temp_dir.name) for temp_dir in temp_dirs]
     else:
         xtb_paths = [Path(path) for path in paths]
@@ -129,6 +132,7 @@ def opt_frags_from_complex(
     elements: Union[Sequence[int], Sequence[str]],
     coordinates: ArrayLike2D,
     keywords: Optional[list[str]] = None,
+    wbo_keywords: Optional[list[str]] = None,
     xcontrol_keywords: Optional[MutableMapping[str, list[str]]] = None,
 ) -> list[tuple[Array1D, Array2D]]:
     """Optimize two fragments from complex.
@@ -136,7 +140,8 @@ def opt_frags_from_complex(
     Args:
         elements: Elements as symbols or numbers
         coordinates: Coordinates (Å)
-        keywords: xtb command line keywords
+        keywords: xtb command line keywords for optimization
+        wbo_keywords: xtb command line keywords for wbo calculation
         xcontrol_keywords: xtb xcontrol keywords
 
     Returns:
@@ -144,7 +149,7 @@ def opt_frags_from_complex(
     """
     elements = np.array(elements)
     coordinates = np.asarray(coordinates)
-    bo_matrix = wbo_xtb(elements, coordinates, keywords=keywords)
+    bo_matrix = wbo_xtb(elements, coordinates, keywords=wbo_keywords)
     frag_indices = two_frags_from_bo(bo_matrix)
     fragments = []
     for indices in frag_indices:
@@ -219,7 +224,9 @@ def calculate_e_shift_xtb(
 ) -> tuple[float, float, float]:
     """Calculate energy shift between geometries."""
     if paths is None:
-        temp_dirs = [TemporaryDirectory() for i in range(len(coordinates))]
+        temp_dirs = [
+            TemporaryDirectory(dir=config.TMP_DIR) for i in range(len(coordinates))
+        ]
         xtb_paths = [Path(temp_dir.name) for temp_dir in temp_dirs]
     else:
         xtb_paths = [Path(path) for path in paths]

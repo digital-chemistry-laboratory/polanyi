@@ -13,7 +13,6 @@ from berny.coords import Bond, get_clusters
 from loguru import logger
 import numpy as np
 
-from polanyi.data import ANGSTROM_TO_BOHR
 from polanyi.evb import evb_eigenvalues
 from polanyi.io import get_xyz_string
 from polanyi.typing import Array2D, ArrayLike2D
@@ -39,7 +38,7 @@ def e_g_function_python(
     gradients = []
     coordinates = np.array(coordinates)
     for calculator in calculators:
-        calculator.calculator.update(coordinates * ANGSTROM_TO_BOHR)
+        calculator.coordinates = coordinates
         energy, gradient = calculator.sp(return_gradient=True)
         energies.append(energy)
         gradients.append(gradient)

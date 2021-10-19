@@ -12,6 +12,7 @@ from loguru import logger
 import numpy as np
 from scipy.optimize import minimize
 
+from polanyi import config
 from polanyi.data import BOHR_TO_ANGSTROM
 from polanyi.evb import evb_eigenvalues
 from polanyi.io import get_xyz_string
@@ -49,7 +50,9 @@ def e_g_function(  # noqa: C901
     topologies = list(topologies)
     if path is None:
         path = Path.cwd()
-        temp_dirs = [TemporaryDirectory() for i in range(len(topologies))]
+        temp_dirs = [
+            TemporaryDirectory(dir=config.TMP_DIR) for i in range(len(topologies))
+        ]
         xtb_paths = [path / temp_dir.name for temp_dir in temp_dirs]
         cleanup = True
     else:

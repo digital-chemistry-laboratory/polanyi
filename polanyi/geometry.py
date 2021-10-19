@@ -22,7 +22,7 @@ def connectivity_from_bo(bo_matrix: Array2D, thres: float = 0.3) -> Array2D:
     Returns:
         connectivity_matrix: Connectivity matrixs
     """
-    connectivity_matrix: np.ndarray = np.where(bo_matrix > thres).astype(int)
+    connectivity_matrix: np.ndarray = np.greater(bo_matrix, thres).astype(int)
 
     return connectivity_matrix
 

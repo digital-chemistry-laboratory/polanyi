@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from os import PathLike
 from pathlib import Path
 from tempfile import TemporaryDirectory
+import textwrap
 from typing import Mapping, Optional, Union
 
 import numpy as np
@@ -14,7 +15,14 @@ from polanyi import config
 from polanyi.geometry import two_frags_from_bo
 from polanyi.pyscf import OptResults, ts_from_gfnff_python
 from polanyi.typing import Array1D, Array2D, ArrayLike2D
-from polanyi.xtb import opt_xtb, parse_energy, run_xtb, wbo_xtb, XTBCalculator
+from polanyi.xtb import (
+    opt_crest,
+    opt_xtb,
+    parse_energy,
+    run_xtb,
+    wbo_xtb,
+    XTBCalculator,
+)
 
 
 @dataclass
@@ -178,6 +186,7 @@ def opt_constrained_complex(
     path: Optional[Union[str, PathLike]] = None,
 ) -> Array2D:
     """Optimize constrained complex."""
+    rmsd_atoms = set(range(1, len(elements) + 1))
     if distance_constraints is not None:
         if xcontrol_keywords is None:
             xcontrol_keywords = {}
@@ -187,19 +196,30 @@ def opt_constrained_complex(
         for (i, j), distance in distance_constraints.items():
             string = f"distance: {i}, {j}, {distance}"
             xcontrol_constraints.append(string)
+            rmsd_atoms.difference_update({i, j})
         xcontrol_keywords["constrain"] = xcontrol_constraints
     if atom_constraints is not None:
         if xcontrol_keywords is None:
             xcontrol_keywords = {}
         xcontrol_atom_constraints = xcontrol_keywords.setdefault("constrain", [])
-        fix_string = "atoms: " + ",".join([str(i) for i in atom_constraints])
-        xcontrol_atom_constraints.append(fix_string)
+        atom_lines = textwrap.wrap(
+            ", ".join(map(str, atom_constraints)), break_long_words=False
+        )
+        for line in atom_lines:
+            fix_string = "atoms: " + line
+            xcontrol_atom_constraints.append(fix_string)
+        rmsd_atoms.difference_update(atom_constraints)
     if fix_atoms is not None:
         if xcontrol_keywords is None:
             xcontrol_keywords = {}
         xcontrol_fix_atoms = xcontrol_keywords.setdefault("fix", [])
-        fix_string = "atoms: " + ",".join([str(i) for i in fix_atoms])
-        xcontrol_fix_atoms.append(fix_string)
+        atom_lines = textwrap.wrap(
+            ", ".join(map(str, fix_atoms)), break_long_words=False
+        )
+        for line in atom_lines:
+            fix_string = "atoms: " + line
+            xcontrol_fix_atoms.append(fix_string)
+        rmsd_atoms.difference_update(fix_atoms)
 
     opt_coordinates = opt_xtb(
         elements,
@@ -210,6 +230,74 @@ def opt_constrained_complex(
     )
 
     return opt_coordinates
+
+
+def crest_constrained(
+    elements: Union[Sequence[int], Sequence[str]],
+    coordinates: ArrayLike2D,
+    distance_constraints: Optional[MutableMapping[tuple[int, int], float]] = None,
+    atom_constraints: Optional[Sequence[int]] = None,
+    fix_atoms: Optional[Sequence[int]] = None,
+    keywords: Optional[list[str]] = None,
+    xcontrol_keywords: Optional[MutableMapping[str, list[str]]] = None,
+    fc: Optional[float] = None,
+    path: Optional[Union[str, PathLike]] = None,
+) -> Array2D:
+    """Run constrained CREST calculation."""
+    rmsd_atoms = set(range(1, len(elements) + 1))
+    if distance_constraints is not None:
+        if xcontrol_keywords is None:
+            xcontrol_keywords = {}
+        xcontrol_constraints = xcontrol_keywords.setdefault("constrain", [])
+        if fc is not None:
+            xcontrol_constraints.append(f"force constant={fc}")
+        for (i, j), distance in distance_constraints.items():
+            string = f"distance: {i}, {j}, {distance}"
+            xcontrol_constraints.append(string)
+            rmsd_atoms.difference_update({i, j})
+        xcontrol_keywords["constrain"] = xcontrol_constraints
+    if atom_constraints is not None:
+        if xcontrol_keywords is None:
+            xcontrol_keywords = {}
+        xcontrol_atom_constraints = xcontrol_keywords.setdefault("constrain", [])
+        atom_lines = textwrap.wrap(
+            ", ".join(map(str, atom_constraints)), break_long_words=False
+        )
+        for line in atom_lines:
+            fix_string = "atoms: " + line
+            xcontrol_atom_constraints.append(fix_string)
+        rmsd_atoms.difference_update(atom_constraints)
+    if fix_atoms is not None:
+        if xcontrol_keywords is None:
+            xcontrol_keywords = {}
+        xcontrol_fix_atoms = xcontrol_keywords.setdefault("fix", [])
+        atom_lines = textwrap.wrap(
+            ", ".join(map(str, fix_atoms)), break_long_words=False
+        )
+        for line in atom_lines:
+            fix_string = "atoms: " + line
+            xcontrol_fix_atoms.append(fix_string)
+        rmsd_atoms.difference_update(fix_atoms)
+    if len(rmsd_atoms) > 0:
+        if xcontrol_keywords is None:
+            xcontrol_keywords = {}
+        xcontrol_rmsd_atoms = xcontrol_keywords.setdefault("metadyn", [])
+        atom_lines = textwrap.wrap(
+            ", ".join(map(str, rmsd_atoms)), break_long_words=False
+        )
+        for line in atom_lines:
+            fix_string = "atoms: " + line
+            xcontrol_rmsd_atoms.append(fix_string)
+
+    conformer_ensemble = opt_crest(
+        elements,
+        coordinates,
+        keywords=keywords,
+        xcontrol_keywords=xcontrol_keywords,
+        path=path,
+    )
+
+    return conformer_ensemble
 
 
 def calculate_e_shift_xtb(

@@ -206,7 +206,7 @@ def write_xcontrol(
         string += f"${header}\n"
         for line in lines:
             string += f"   {line}\n"
-        string += "$end\n"
+    string += "$end\n"
     with open(file, "w") as f:
         f.write(string)
 

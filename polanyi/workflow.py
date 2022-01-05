@@ -3,16 +3,19 @@ from __future__ import annotations
 
 from collections.abc import MutableMapping, Sequence
 from dataclasses import dataclass
+from inspect import signature
 from os import PathLike
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import textwrap
 from typing import Mapping, Optional, Union
 
+from morfeus.conformer import ConformerEnsemble
 import numpy as np
 
 from polanyi import config
 from polanyi.geometry import two_frags_from_bo
+from polanyi.interpolation import interpolate_geodesic
 from polanyi.pyscf import OptResults, ts_from_gfnff_python
 from polanyi.typing import Array1D, Array2D, ArrayLike2D
 from polanyi.xtb import (
@@ -48,11 +51,12 @@ class ShiftResults:
 def opt_ts_python(
     elements: Union[Sequence[int], Sequence[str]],
     coordinates: Sequence[Array2D],
-    coordinates_guess: Array2D,
+    coordinates_guess: Optional[Array2D] = None,
     e_shift: Optional[float] = None,
     kw_calculators: Optional[Mapping] = None,
     kw_shift: Optional[Mapping] = None,
     kw_opt: Optional[Mapping] = None,
+    kw_interpolation: Optional[Mapping] = None,
 ) -> Results:
     """Optimize transition state with xtb-python and PySCF."""
     if kw_opt is None:
@@ -61,6 +65,8 @@ def opt_ts_python(
         kw_shift = {}
     if kw_calculators is None:
         kw_calculators = {}
+    if kw_interpolation is None:
+        kw_interpolation = {}
     calculators = setup_gfnff_calculators_python(
         elements, coordinates, **kw_calculators
     )
@@ -70,6 +76,12 @@ def opt_ts_python(
         e_shift = shift_results.energy_shift
     else:
         shift_results = None
+    if coordinates_guess is None:
+        n_images = kw_interpolation.get("n_images")
+        if n_images is None:
+            n_images = signature(interpolate_geodesic).parameters["n_images"].default
+        path = interpolate_geodesic(elements, coordinates, **kw_interpolation)
+        coordinates_guess = path[n_images // 2]
     opt_results = ts_from_gfnff_python(
         elements, coordinates_guess, calculators, e_shift=e_shift, **kw_opt
     )
@@ -242,7 +254,7 @@ def crest_constrained(
     xcontrol_keywords: Optional[MutableMapping[str, list[str]]] = None,
     fc: Optional[float] = None,
     path: Optional[Union[str, PathLike]] = None,
-) -> Array2D:
+) -> ConformerEnsemble:
     """Run constrained CREST calculation."""
     rmsd_atoms = set(range(1, len(elements) + 1))
     if distance_constraints is not None:

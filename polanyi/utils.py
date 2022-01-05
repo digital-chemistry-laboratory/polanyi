@@ -100,11 +100,10 @@ def validate_atom_order(
     Note that the elements need to be given with consistent representation (str or int).
 
     Args:
-        elements: An iterable of elements (atomic symbols or numbers)
+        elements: An iterable of iterables of elements (atomic symbols or numbers)
 
     Returns:
-        True
-         if all elements match, False otherwise
+        True if all elements match, False otherwise
     """
     return all(all_equal(i) for i in zip_longest(*elements))
 

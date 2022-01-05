@@ -1,9 +1,11 @@
 """Utility functions."""
+
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from importlib import import_module
+from itertools import groupby, zip_longest
 from numbers import Integral
 from typing import Any, cast, Literal, Optional, overload, Union
 
@@ -74,6 +76,37 @@ def requires_dependency(  # noqa: C901
             import_errors.append(import_error)
 
     return error_decorator if len(import_errors) > 0 else noop_decorator
+
+
+def all_equal(iterable: Iterable) -> bool:
+    """Returns True if all the elements are equal to each other."""
+    g = groupby(iterable)
+    try:
+        next(g)
+    except StopIteration as e:
+        raise ValueError("Empty iterable.") from e
+    try:
+        next(g)
+        return False
+    except StopIteration:
+        return True
+
+
+def validate_atom_order(
+    elements: Iterable[Union[Iterable[int], Iterable[str]]]
+) -> bool:
+    """Check whether atom types and length of elements is consistent.
+
+    Note that the elements need to be given with consistent representation (str or int).
+
+    Args:
+        elements: An iterable of elements (atomic symbols or numbers)
+
+    Returns:
+        True
+         if all elements match, False otherwise
+    """
+    return all(all_equal(i) for i in zip_longest(*elements))
 
 
 @overload

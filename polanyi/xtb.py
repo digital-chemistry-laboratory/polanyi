@@ -170,7 +170,7 @@ def run_crest(
     if keywords is None:
         keywords = []
     keywords = set([keyword.strip().lower() for keyword in keywords])
-    keywords.add(f"-T {float(config.OMP_NUM_THREADS)}")
+    keywords.add(f"-T {int(config.OMP_NUM_THREADS)}")
 
     if path is not None:
         path = Path(path)

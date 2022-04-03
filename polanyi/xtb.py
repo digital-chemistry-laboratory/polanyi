@@ -169,6 +169,9 @@ def run_crest(
     """Run standalone xtb in from command line."""
     if keywords is None:
         keywords = []
+    keywords = set([keyword.strip().lower() for keyword in keywords])
+    keywords.add(f"-T {float(config.OMP_NUM_THREADS)}")
+
     if path is not None:
         path = Path(path)
     else:
@@ -176,7 +179,6 @@ def run_crest(
     path.mkdir(exist_ok=True)
 
     write_xyz(path / "crest.xyz", elements, coordinates)
-    keywords.update({"-T": float(config.OMP_NUM_THREADS)})
     command = "crest crest.xyz " + " ".join(f"{keyword}" for keyword in keywords)
     if xcontrol_keywords is not None:
         write_xcontrol(path / ".xcontrol", xcontrol_keywords)

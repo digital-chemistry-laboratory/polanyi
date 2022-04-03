@@ -145,6 +145,7 @@ def run_xtb(
     with open(path / "xtb.out", "w") as stdout, open(path / "xtb.err", "w") as stderr:
         env = dict(os.environ)
         env["OMP_NUM_THREADS"] = f"{config.OMP_NUM_THREADS},1"
+        env["MKL_NUM_THREADS"] = f"{config.OMP_NUM_THREADS}"
         env["OMP_STACKSIZE"] = config.OMP_STACKSIZE
         env["OMP_MAX_ACTIVE_LEVELS"] = str(config.OMP_MAX_ACTIVE_LEVELS)
         process = subprocess.run(
@@ -175,6 +176,7 @@ def run_crest(
     path.mkdir(exist_ok=True)
 
     write_xyz(path / "crest.xyz", elements, coordinates)
+    keywords.update("-T", float(config.OMP_NUM_THREADS))
     command = "crest crest.xyz " + " ".join(f"{keyword}" for keyword in keywords)
     if xcontrol_keywords is not None:
         write_xcontrol(path / ".xcontrol", xcontrol_keywords)
@@ -183,6 +185,7 @@ def run_crest(
     ) as stderr:
         env = dict(os.environ)
         env["OMP_NUM_THREADS"] = f"{config.OMP_NUM_THREADS},1"
+        env["MKL_NUM_THREADS"] = f"{config.OMP_NUM_THREADS}"
         env["OMP_STACKSIZE"] = config.OMP_STACKSIZE
         env["OMP_MAX_ACTIVE_LEVELS"] = str(config.OMP_MAX_ACTIVE_LEVELS)
         process = subprocess.run(

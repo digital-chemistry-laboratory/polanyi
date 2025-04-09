@@ -1,4 +1,5 @@
 """xtb interface."""
+
 from __future__ import annotations
 
 from collections.abc import Iterable, MutableMapping
@@ -101,13 +102,18 @@ class XTBCalculator:
         """Method."""
         return self._method
 
+    # Disable black formatting for the overloaded functions otherwise it conflicts with flake8
+    # fmt: off
     @overload
-    def sp(self, return_gradient: Literal[True]) -> tuple[float, Array2D]:
+    def sp(
+        self, return_gradient: Literal[True]
+    ) -> tuple[float, Array2D]:
         ...
 
     @overload
     def sp(self, return_gradient: Literal[False]) -> float:
         ...
+    # fmt: on
 
     def sp(self, return_gradient: bool = True) -> Union[float, tuple[float, Array2D]]:
         """Do single point calculation and return result."""
@@ -129,7 +135,7 @@ def run_xtb(
     keywords: Optional[Iterable[str]] = None,
     xcontrol_keywords: Optional[MutableMapping[str, list[str]]] = None,
 ) -> CompletedProcess:
-    """Run standalone xtb in from command line."""
+    """Run standalone xtb from command line."""
     if keywords is None:
         keywords = []
     if path is not None:
@@ -158,12 +164,17 @@ def run_xtb(
         )
 
     # If SCC did not converge, rerun xtb with increased electronic temperature and then restart with normal temperature
-    if "-1- scf: Self consistent charge iterator did not converge" in (path / "xtb.out").read_text():
+    if (
+        "-1- scf: Self consistent charge iterator did not converge"
+        in (path / "xtb.out").read_text()
+    ):
         for file in path.iterdir():
             if file.name != "xtb.xyz":
                 file.unlink()
         command = command + " --etemp 1000.0 && " + command + " --restart"
-        with open(path / "xtb.out", "w") as stdout, open(path / "xtb.err", "w") as stderr:
+        with open(path / "xtb.out", "w") as stdout, open(
+            path / "xtb.err", "w"
+        ) as stderr:
             process = subprocess.run(
                 command.split(),
                 cwd=path,
@@ -226,7 +237,7 @@ def write_xcontrol(
         file: path to the xcontrol file to create
         keywords: xTB input instructions to write in the xcontrol file
     Returns:
-        None, write xcontrol file    
+        None, write xcontrol file
     """
     string = ""
     for header, lines in keywords.items():

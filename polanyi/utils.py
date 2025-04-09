@@ -93,7 +93,7 @@ def all_equal(iterable: Iterable) -> bool:
 
 
 def validate_atom_order(
-    elements: Iterable[Union[Iterable[int], Iterable[str]]]
+    elements: Iterable[Union[Iterable[int], Iterable[str]]],
 ) -> bool:
     """Check whether atom types and length of elements is consistent.
 
@@ -108,6 +108,9 @@ def validate_atom_order(
     return all(all_equal(i) for i in zip_longest(*elements))
 
 
+# Disable black formatting for the overloaded functions otherwise it conflicts with flake8
+# fmt: off
+
 @overload
 def convert_elements(
     elements: Union[Iterable[int], Iterable[str]], output: Literal["numbers"]
@@ -120,6 +123,8 @@ def convert_elements(
     elements: Union[Iterable[int], Iterable[str]], output: Literal["symbols"]
 ) -> list[str]:
     ...
+
+# fmt: on
 
 
 def convert_elements(

@@ -1,4 +1,5 @@
 """Input and output."""
+
 from __future__ import annotations
 
 from collections.abc import Iterable
@@ -79,7 +80,10 @@ def get_xyz_string(
     max_decimals = 12
     if decimals > max_decimals:
         decimals = max_decimals
-        warnings.warn(f"decimals was greater than {max_decimals} and has been set to {max_decimals}.", UserWarning)
+        warnings.warn(
+            f"decimals was greater than {max_decimals} and has been set to {max_decimals}.",
+            UserWarning,
+        )
     symbols = convert_elements(elements, output="symbols")
     coordinates = np.asarray(coordinates)
     lines = [
@@ -212,7 +216,7 @@ def write_gradient(
         gradient: Gradient (a.u.)
     """
     gradient = np.asarray(gradient)
-    grad_rms = np.sqrt(np.mean(gradient ** 2))
+    grad_rms = np.sqrt(np.mean(gradient**2))
     coord_string = get_coord_string(elements, coordinates)
     string = "$gradient\n"
     string += (

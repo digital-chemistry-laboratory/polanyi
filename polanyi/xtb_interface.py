@@ -1,4 +1,5 @@
 """Interface for driving optimizations through xtb."""
+
 from __future__ import annotations
 
 from pathlib import Path

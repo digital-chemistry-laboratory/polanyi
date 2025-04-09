@@ -43,8 +43,10 @@ class OptResults:
     stdout: str = ""
     stderr: str = ""
 
+
 class EnginesWrapper:
     """Wrapper (with list-like behaviours) for multiple engines for ConicalIntersection from geomeTRIC 1.0.1."""
+
     def __init__(self, engine_list):
         self.engines = engine_list
 
@@ -102,7 +104,7 @@ def e_g_function(
         xtb_paths = [path / str(i) for i in range(len(topologies))]
         cleanup = False
     elements = mol.atom_charges()
-    coordinates = mol.atom_coords(unit='ANG')
+    coordinates = mol.atom_coords(unit="ANG")
 
     energies = []
     gradients = []
@@ -179,7 +181,7 @@ def e_g_function_ci(
         cleanup = False
 
     elements = mol.atom_charges()
-    coordinates = mol.atom_coords(unit='ANG')
+    coordinates = mol.atom_coords(unit="ANG")
 
     xtb_path.mkdir(exist_ok=True)
     if not (xtb_path / "gfnff_topo").exists():
@@ -225,7 +227,7 @@ def e_g_function_python(
         path = Path.cwd()
     else:
         path = Path(path)
-    coordinates: np.ndarray = np.ascontiguousarray(mol.atom_coords(unit='ANG'))
+    coordinates: np.ndarray = np.ascontiguousarray(mol.atom_coords(unit="ANG"))
 
     energies = []
     gradients = []
@@ -273,7 +275,7 @@ def e_g_function_ci_python(
     else:
         path = Path(path)
 
-    coordinates = np.ascontiguousarray(mol.atom_coords(unit='ANG'))
+    coordinates = np.ascontiguousarray(mol.atom_coords(unit="ANG"))
 
     calculator.coordinates = coordinates
     energy, gradient = calculator.sp(return_gradient=True)
@@ -500,9 +502,7 @@ def ts_from_gfnff_ci(
         **conv_params,
     )
 
-    opt_coordinates: Array2D = (
-        np.ascontiguousarray(opt_mole.atom_coords(unit='ANG'))
-    )
+    opt_coordinates: Array2D = np.ascontiguousarray(opt_mole.atom_coords(unit="ANG"))
 
     return opt_coordinates
 
@@ -568,9 +568,7 @@ def ts_from_gfnff_ci_python(
         **conv_params,
     )
 
-    opt_coordinates: Array2D = (
-        np.ascontiguousarray(opt_mole.atom_coords(unit='ANG'))
-    )
+    opt_coordinates: Array2D = np.ascontiguousarray(opt_mole.atom_coords(unit="ANG"))
 
     return opt_coordinates
 
@@ -604,7 +602,7 @@ ASSERT_CONV: bool = getattr(
 )
 
 
-def optimize_ci(
+def optimize_ci(  # noqa: C901
     methods: list[Any],
     assert_convergence: bool = ASSERT_CONV,
     include_ghost: bool = INCLUDE_GHOST,
@@ -652,7 +650,9 @@ def optimize_ci(
         engine.mol.symmetry = engine.mol.topgroup
 
     # Provide config file log.ini for geomeTRIC optimisation
-    kwargs["logIni"] = os.path.abspath(os.path.abspath(os.path.join(__file__, "..", "log.ini")))
+    kwargs["logIni"] = os.path.abspath(
+        os.path.abspath(os.path.join(__file__, "..", "log.ini"))
+    )
 
     engine.assert_convergence = assert_convergence
     try:

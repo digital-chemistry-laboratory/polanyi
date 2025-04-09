@@ -1,4 +1,5 @@
 """Automated testing linting and formatting apparatus."""
+
 # external
 import nox
 from nox.sessions import Session

@@ -1,4 +1,5 @@
 """PyBerny geometry optimization interface."""
+
 from __future__ import annotations
 
 from collections.abc import Iterable, Sequence

@@ -1,4 +1,5 @@
 """Workflows."""
+
 from __future__ import annotations
 
 from collections.abc import MutableMapping, Sequence
@@ -13,12 +14,17 @@ from typing import Mapping, Optional, Union
 from morfeus.conformer import ConformerEnsemble
 import numpy as np
 import os
-import subprocess
 
 from polanyi import config
 from polanyi.geometry import two_frags_from_bo
 from polanyi.interpolation import interpolate_geodesic
-from polanyi.pyscf import OptResults, ts_from_gfnff_python, ts_from_gfnff, ts_from_gfnff_ci_python, ts_from_gfnff_ci
+from polanyi.pyscf import (
+    OptResults,
+    ts_from_gfnff_python,
+    ts_from_gfnff,
+    ts_from_gfnff_ci_python,
+    ts_from_gfnff_ci,
+)
 from polanyi.typing import Array1D, Array2D, ArrayLike2D
 from polanyi.xtb import (
     opt_crest,
@@ -156,7 +162,7 @@ def opt_ts_ci_python(
         e_shift = shift_results.energy_shift
     else:
         shift_results = None
-    
+
     if coordinates_guess is None:
         n_images = kw_interpolation.get("n_images")
         if n_images is None:
@@ -164,7 +170,9 @@ def opt_ts_ci_python(
         path = interpolate_geodesic(elements, coordinates, **kw_interpolation)
         coordinates_guess = path[n_images // 2]
 
-    coordinates_opt = ts_from_gfnff_ci_python(elements, coordinates_guess, calculators, e_shift=e_shift, **kw_opt)
+    coordinates_opt = ts_from_gfnff_ci_python(
+        elements, coordinates_guess, calculators, e_shift=e_shift, **kw_opt
+    )
 
     return coordinates_opt
 
@@ -205,11 +213,15 @@ def opt_ts_ci(
     if kw_interpolation is None:
         kw_interpolation = {}
 
-    topologies = setup_gfnff_calculators(elements, coordinates, atomic_charges=atomic_charges, **kw_calculators)
+    topologies = setup_gfnff_calculators(
+        elements, coordinates, atomic_charges=atomic_charges, **kw_calculators
+    )
 
     shift_results: Optional[tuple[float, float, float]]
     if e_shift is None:
-        shift_results = calculate_e_shift_xtb(elements, coordinates, topologies, e_diff_ref=e_diff_ref, **kw_shift)
+        shift_results = calculate_e_shift_xtb(
+            elements, coordinates, topologies, e_diff_ref=e_diff_ref, **kw_shift
+        )
         e_shift = shift_results[0]
     else:
         shift_results = None
@@ -227,18 +239,26 @@ def opt_ts_ci(
         xyz_file = run_path / "opt_steps.xyz"
         os.makedirs(run_path, exist_ok=True)
         step_counter = [0]  # Using list for mutable counter in callback
+
         def get_opt_steps_from_ci(envs):
-            pyscf_mol = envs['g_scanner'].mol
+            pyscf_mol = envs["g_scanner"].mol
             pyscf_elements = pyscf_mol.atom_charges()
-            pyscf_coordinates = np.array(pyscf_mol.atom_coords(unit='ANG'), order="C")
-            xyz_string = get_xyz_string(pyscf_elements, pyscf_coordinates, comment=f"step {step_counter[0]}", decimals=10)
+            pyscf_coordinates = np.array(pyscf_mol.atom_coords(unit="ANG"), order="C")
+            xyz_string = get_xyz_string(
+                pyscf_elements,
+                pyscf_coordinates,
+                comment=f"step {step_counter[0]}",
+                decimals=10,
+            )
             with open(xyz_file, "a") as f:
                 f.write(xyz_string)
             step_counter[0] += 1
 
         kw_opt["callback"] = get_opt_steps_from_ci
 
-    coordinates_opt = ts_from_gfnff_ci(elements, coordinates_guess, topologies, e_shift=e_shift, **kw_opt)
+    coordinates_opt = ts_from_gfnff_ci(
+        elements, coordinates_guess, topologies, e_shift=e_shift, **kw_opt
+    )
 
     return coordinates_opt
 
@@ -276,10 +296,14 @@ def opt_ts(
         kw_calculators = {}
     if kw_interpolation is None:
         kw_interpolation = {}
-    topologies = setup_gfnff_calculators(elements, coordinates, atomic_charges=atomic_charges, **kw_calculators)
+    topologies = setup_gfnff_calculators(
+        elements, coordinates, atomic_charges=atomic_charges, **kw_calculators
+    )
     shift_results: Optional[tuple[float, float, float]]
     if e_shift is None:
-        shift_results = calculate_e_shift_xtb(elements, coordinates, topologies, **kw_shift)
+        shift_results = calculate_e_shift_xtb(
+            elements, coordinates, topologies, **kw_shift
+        )
         e_shift = shift_results[0]
     else:
         shift_results = None
@@ -290,14 +314,18 @@ def opt_ts(
         path = interpolate_geodesic(elements, coordinates, **kw_interpolation)
         coordinates_guess = path[n_images // 2]
 
-    opt_results = ts_from_gfnff(elements, coordinates_guess, topologies, e_shift=e_shift, **kw_opt)
+    opt_results = ts_from_gfnff(
+        elements, coordinates_guess, topologies, e_shift=e_shift, **kw_opt
+    )
 
     # Save the optimisation steps if path for optimisation is given
     if "path" in kw_opt and kw_opt["path"] is not None:
         run_path = Path(kw_opt["path"])
         os.makedirs(run_path, exist_ok=True)
         xyz_file = run_path / "opt_steps.xyz"
-        xyz_guess = get_xyz_string(elements, coordinates_guess, comment=f"initial guess", decimals=10)
+        xyz_guess = get_xyz_string(
+            elements, coordinates_guess, comment="initial guess", decimals=10
+        )
         with open(xyz_file, "w") as f:
             f.write(xyz_guess)
         for i, coord in enumerate(opt_results.coordinates, start=1):
@@ -416,7 +444,7 @@ def opt_frags_from_complex(
     return fragments
 
 
-def opt_constrained_complex(
+def opt_constrained_complex(  # noqa: C901
     elements: Union[Sequence[int], Sequence[str]],
     coordinates: ArrayLike2D,
     distance_constraints: Optional[MutableMapping[tuple[int, int], float]] = None,
@@ -474,7 +502,7 @@ def opt_constrained_complex(
     return opt_coordinates
 
 
-def crest_constrained(
+def crest_constrained(  # noqa: C901
     elements: Union[Sequence[int], Sequence[str]],
     coordinates: ArrayLike2D,
     distance_constraints: Optional[MutableMapping[tuple[int, int], float]] = None,

@@ -8,6 +8,9 @@ import numpy as np
 
 from polanyi.typing import Array2D, ArrayLike1D, ArrayLike2D
 
+# Disable black formatting for the overloaded functions otherwise it conflicts with flake8
+# fmt: off
+
 
 @overload
 def evb_eigenvalues(
@@ -47,6 +50,8 @@ def evb_eigenvalues(
     coupling: Union[float, Mapping[Tuple[int, int], float]] = 0.0,
 ) -> Tuple[list[float], list[Array2D], list[Array2D], list[int]]:
     ...
+
+# fmt: on
 
 
 def evb_eigenvalues(  # noqa: C901

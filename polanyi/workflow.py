@@ -184,7 +184,7 @@ def opt_ts_ci(
     atomic_charges: Optional[list[float]] = None,
     e_shift: Optional[float] = None,
     e_diff_ref: Optional[float] = None,
-    kw_calculators: Optional[Mapping] = None,
+    kw_topo: Optional[Mapping] = None,
     kw_shift: Optional[Mapping] = None,
     kw_opt: Optional[Mapping] = None,
     kw_interpolation: Optional[Mapping] = None,
@@ -197,7 +197,7 @@ def opt_ts_ci(
         atomic_charges: atomic charges (not implemented yet)
         e_shift: energy shift between reference (GFN2-xTB by default) and GFN-FF reaction energies
         e_diff_ref: reference reaction energy [Eh]. If provided, it is used instead of GFN2-xTB in the energy shift calculation
-        kw_calculators: parameters for topologies calculation
+        kw_topo: parameters for topologies calculation
         kw_shift: parameters for energy shift calculation
         kw_opt: parameters for optimization
         kw_interpolation: parameters for the TS interpolation
@@ -208,13 +208,13 @@ def opt_ts_ci(
         kw_opt = {}
     if kw_shift is None:
         kw_shift = {}
-    if kw_calculators is None:
-        kw_calculators = {}
+    if kw_topo is None:
+        kw_topo = {}
     if kw_interpolation is None:
         kw_interpolation = {}
 
-    topologies = setup_gfnff_calculators(
-        elements, coordinates, atomic_charges=atomic_charges, **kw_calculators
+    topologies = setup_gfnff_topologies(
+        elements, coordinates, atomic_charges=atomic_charges, **kw_topo
     )
 
     shift_results: Optional[tuple[float, float, float]]
@@ -269,7 +269,7 @@ def opt_ts(
     coordinates_guess: Optional[Array2D] = None,
     atomic_charges: Optional[list[float]] = None,
     e_shift: Optional[float] = None,
-    kw_calculators: Optional[Mapping] = None,
+    kw_topo: Optional[Mapping] = None,
     kw_shift: Optional[Mapping] = None,
     kw_opt: Optional[Mapping] = None,
     kw_interpolation: Optional[Mapping] = None,
@@ -277,11 +277,11 @@ def opt_ts(
     """Optimize transition state with xtb command line and PySCF.
     Args:
         elements: TS elements as symbols or numbers
-        coordinates: sequence containing the coordinates of each ground states [Å]
+        coordinates: sequence containing the coordinates of each ground state [Å]
         coordinates_guess: initial guess for the transition state [Å]
         atomic_charges: atomic charges (not implemented yet)
         e_shift: energy shift between reference (GFN2-xTB by default) and GFN-FF reaction energies
-        kw_calculators: parameters for topologies calculation
+        kw_topo: parameters for topologies calculation
         kw_shift: parameters for energy shift calculation
         kw_opt: parameters for optimization
         kw_interpolation: parameters for the TS interpolation
@@ -292,12 +292,12 @@ def opt_ts(
         kw_opt = {}
     if kw_shift is None:
         kw_shift = {}
-    if kw_calculators is None:
-        kw_calculators = {}
+    if kw_topo is None:
+        kw_topo = {}
     if kw_interpolation is None:
         kw_interpolation = {}
-    topologies = setup_gfnff_calculators(
-        elements, coordinates, atomic_charges=atomic_charges, **kw_calculators
+    topologies = setup_gfnff_topologies(
+        elements, coordinates, atomic_charges=atomic_charges, **kw_topo
     )
     shift_results: Optional[tuple[float, float, float]]
     if e_shift is None:
@@ -342,7 +342,7 @@ def opt_ts(
     return results
 
 
-def setup_gfnff_calculators(
+def setup_gfnff_topologies(
     elements: Union[Sequence[int], Sequence[str]],
     coordinates: Sequence[ArrayLike2D],
     atomic_charges: Optional[list[float]] = None,
@@ -584,7 +584,7 @@ def calculate_e_shift_xtb(
     """Calculate energy shift between reference (default: GFN2-xTB) and GFN-FF reaction energies.
     Args:
         elements: elements as symbols or numbers
-        coordinates: sequence containing the coordinates of each ground states [Å]
+        coordinates: sequence containing the coordinates of each ground state [Å]
         topologies: sequence of GFN-FF topologies for each ground state
         e_diff_ref: reference reaction energy [Eh]. If provided, it is used instead of the GFN2-xTB calculation
         keywords_ff: xtb command line keywords for GFN-FF calculation

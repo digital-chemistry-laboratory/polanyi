@@ -342,15 +342,27 @@ def opt_ts(
     return results
 
 
-def setup_gfnff_topologies(
+def setup_gfnff_topologies(  # noqa: C901
     elements: Union[Sequence[int], Sequence[str]],
     coordinates: Sequence[ArrayLike2D],
     atomic_charges: Optional[list[float]] = None,
     keywords: Optional[list[str]] = None,
     xcontrol_keywords: Optional[MutableMapping[str, list[str]]] = None,
+    adjacency_matrices: Optional[Sequence[Array2D]] = None,
     paths: Optional[Sequence[Union[str, PathLike]]] = None,
 ) -> list[bytes]:
-    """Sets up force fields for GFNFF calculation."""
+    """Set up topologies for GFN-FF calculation.
+    Args:
+        elements: elements as symbols or numbers
+        coordinates: coordinates of each ground state [Å]
+        atomic_charges: atomic charges (not implemented yet)
+        keywords: xtb command line keywords
+        xcontrol_keywords: input instructions to write in the xtb xcontrol file
+        adjacency_matrices: connectivity matrices of each ground state
+        paths: folders to save the xtb runs
+    Returns:
+        topology of each ground state
+    """
 
     # Set the xtb keywords for the GFN-FF calculations
     if keywords is None:
@@ -368,7 +380,24 @@ def setup_gfnff_topologies(
         xtb_paths = [Path(path) for path in paths]
 
     topologies = []
-    for coordinates_, xtb_path in zip(coordinates, xtb_paths):
+    for i, (coordinates_, xtb_path) in enumerate(zip(coordinates, xtb_paths)):
+        if adjacency_matrices is not None:
+            ffnb_lines = []
+            for atom_idx, row in enumerate(adjacency_matrices[i], 1):
+                neighbours = (
+                    np.nonzero(row)[0] + 1
+                )  # Atoms must be 1-indexed in xcontrol file
+                if len(neighbours) > 0:
+                    ffnb_lines.append(
+                        f"nb = {atom_idx}: {', '.join(map(str, neighbours))}"
+                    )
+                else:
+                    ffnb_lines.append(f"nb = {atom_idx}: 0")
+            if xcontrol_keywords is not None:
+                xcontrol_keywords = {**xcontrol_keywords, "ffnb": ffnb_lines}
+            else:
+                xcontrol_keywords = {"ffnb": ffnb_lines}
+
         if atomic_charges and not path.isfile(xtb_path / "charges"):
             with open(xtb_path / "charges", "w") as f:
                 for charge in atomic_charges:

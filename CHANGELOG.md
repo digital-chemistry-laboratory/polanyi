@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - If SCC doesn't converge in xtb runs, reruns with increase electronic temperature and then restarts with normal temperature
 - Possibility of writing out the TS optimisation steps
 - Possibility of giving in a reference reaction energy for the calculation of the energy shift
-- Possibility of giving an adjacency matrix in the `setup_gfnff_topologies` function to write a neighbours list as input for xtb for the topology generation
+- Possibility of giving an adjacency matrix in the `setup_gfnff_topologies` function to write a neighbours list as input for xtb for the topology generation => requires [xtb bleeding edge version](https://github.com/grimme-lab/xtb/releases/tag/bleed)
 
 ### Changed
 - All xtb calculations now run from command line instead of using the deprecated `xtb-python` Python API

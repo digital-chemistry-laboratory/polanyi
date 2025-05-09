@@ -8,8 +8,51 @@ from importlib import import_module
 from itertools import groupby, zip_longest
 from numbers import Integral
 from typing import Any, cast, Literal, Optional, overload, Union
+import subprocess
+import re
+from packaging.version import Version
 
 from polanyi.data import atomic_numbers, atomic_symbols
+
+
+def is_min_xtb_version(min_version: str) -> bool:
+    """Check if the used version of xtb is greater than or equal to a given version.
+
+    Args:
+        min_version: Minimum version of xtb required. Either:
+            - 'X.Y.Z' for version number
+            - 'bleed' for bleeding edge version
+
+    Returns:
+        True if the used xtb version is at least the min_version, False otherwise.
+    """
+    try:
+        out = subprocess.run(
+            ["xtb", "--version"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+        ).stdout
+    except Exception:
+        return False
+
+    # Search for version and commit hash in xtb version output
+    match = re.search(r"version\s*([\d\.]+)(?:\s*\((\w+)\))?", out)
+    version, commit = match.groups()
+    version = Version(version)
+
+    # For bleeding edge version -> TODO: remove when xtb >6.7.1 is released
+    # Currently correspond to "6.7.1" and with commit hash not "edcfbbe" (otherwise it is the official 6.7.1 release)
+    if min_version == "bleed":
+        if version >= Version("6.7.1"):
+            if commit != "edcfbbe":
+                return True
+        return False
+
+    elif version >= Version(min_version):
+        return True
+
+    return False
 
 
 @dataclass

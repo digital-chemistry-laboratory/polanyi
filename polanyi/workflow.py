@@ -35,6 +35,7 @@ from polanyi.xtb import (
     XTBCalculator,
 )
 from polanyi.io import get_xyz_string
+from polanyi.utils import is_min_xtb_version
 
 
 @dataclass
@@ -382,6 +383,13 @@ def setup_gfnff_topologies(  # noqa: C901
     topologies = []
     for i, (coordinates_, xtb_path) in enumerate(zip(coordinates, xtb_paths)):
         if adjacency_matrices is not None:
+
+            # TODO: Update this requirement when xtb >6.7.1 is released
+            if not is_min_xtb_version("bleed"):
+                raise ValueError(
+                    "Use bleeding edge version of xtb to give adjacency matrices as input."
+                )
+
             ffnb_lines = []
             for atom_idx, row in enumerate(adjacency_matrices[i], 1):
                 neighbours = (

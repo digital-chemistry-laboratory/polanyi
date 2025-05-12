@@ -184,7 +184,6 @@ def opt_ts_ci(
     coordinates_guess: Optional[Array2D] = None,
     atomic_charges: Optional[list[float]] = None,
     e_shift: Optional[float] = None,
-    e_diff_ref: Optional[float] = None,
     kw_topo: Optional[Mapping] = None,
     kw_shift: Optional[Mapping] = None,
     kw_opt: Optional[Mapping] = None,
@@ -197,7 +196,6 @@ def opt_ts_ci(
         coordinates_guess: initial guess for the transition state [Å]
         atomic_charges: atomic charges (not implemented yet)
         e_shift: energy shift between reference (GFN2-xTB by default) and GFN-FF reaction energies
-        e_diff_ref: reference reaction energy [Eh]. If provided, it is used instead of GFN2-xTB in the energy shift calculation
         kw_topo: parameters for topologies calculation
         kw_shift: parameters for energy shift calculation
         kw_opt: parameters for optimization
@@ -221,7 +219,10 @@ def opt_ts_ci(
     shift_results: Optional[tuple[float, float, float]]
     if e_shift is None:
         shift_results = calculate_e_shift_xtb(
-            elements, coordinates, topologies, e_diff_ref=e_diff_ref, **kw_shift
+            elements,
+            coordinates,
+            topologies,
+            **kw_shift,
         )
         e_shift = shift_results[0]
     else:

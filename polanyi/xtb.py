@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable, MutableMapping
+from collections.abc import Iterable, MutableMapping, Sequence
 from itertools import islice
 import json
 import os
@@ -134,6 +134,7 @@ def run_xtb(
     path: Optional[Union[str, PathLike]] = None,
     keywords: Optional[Iterable[str]] = None,
     xcontrol_keywords: Optional[MutableMapping[str, list[str]]] = None,
+    fragment_charges: Optional[list[int]] = None,
 ) -> CompletedProcess:
     """Run standalone xtb from command line."""
     if keywords is None:
@@ -149,6 +150,14 @@ def run_xtb(
     if xcontrol_keywords is not None:
         write_xcontrol(path / "xcontrol", xcontrol_keywords)
         command += " -I xcontrol"
+    if fragment_charges is not None:
+        for keyword in keywords:
+            if keyword.startswith(("--chrg", "-c")):
+                if int(keyword.split()[-1]) != int(sum(fragment_charges)):
+                    raise ValueError(
+                        f"The sum of the given fragment charges ({fragment_charges}) does not match the given total charge ({keyword.split()[-1]})."
+                    )
+        write_chrg(path / ".CHRG", fragment_charges)
     with open(path / "xtb.out", "w") as stdout, open(path / "xtb.err", "w") as stderr:
         env = dict(os.environ)
         env["OMP_NUM_THREADS"] = f"{config.OMP_NUM_THREADS},1"
@@ -249,14 +258,43 @@ def write_xcontrol(
         f.write(string)
 
 
+def write_chrg(
+    file: Union[str, PathLike],
+    fragment_charges: list[int],
+) -> None:
+    """Write fragment charges in xtb .CHRG file
+    Args:
+        file: path to the .CHRG file to create
+        fragment_charges: charge of each non-covalently bound (NCI) fragment
+    Returns:
+        None, write .CHRG file
+    """
+    with open(file, "w") as f:
+        # First line must be the total charge of the system
+        f.write(f"{sum(fragment_charges)}\n")
+        # Second line must contain the charges of the NCI fragments
+        for charge in fragment_charges:
+            f.write(f"{charge} ")
+
+
 def opt_xtb(
     elements: Union[Iterable[int], Iterable[str]],
     coordinates: ArrayLike2D,
     keywords: Optional[Iterable[str]] = None,
     xcontrol_keywords: Optional[MutableMapping[str, list[str]]] = None,
+    fragment_charges: Optional[list[int]] = None,
     path: Optional[Union[str, PathLike]] = None,
 ) -> Array2D:
-    """Returns xtb-optimized geometry."""
+    """Calculate xtb-optimized geometry.
+    Args:
+        elements: elements as symbols or numbers
+        coordinates: coordinates [Å]
+        keywords: xtb command line keywords
+        xcontrol_keywords: input instructions to write in the xtb xcontrol file
+        fragment_charges: charge of each non-covalently bound (NCI) fragment
+    Returns:
+        optimized coordinates [Å]
+    """
     if keywords is None:
         keywords = []
     keywords = set([keyword.strip().lower() for keyword in keywords])
@@ -274,6 +312,7 @@ def opt_xtb(
         path=xtb_path,
         keywords=keywords,
         xcontrol_keywords=xcontrol_keywords,
+        fragment_charges=fragment_charges,
     )
     _, opt_coordinates = read_xyz(xtb_path / "xtbopt.xyz")
     if path is None:

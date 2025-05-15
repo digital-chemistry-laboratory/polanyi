@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import MutableMapping, Sequence
 from dataclasses import dataclass
 from inspect import signature
-from os import PathLike, path
+from os import PathLike
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import textwrap
@@ -105,8 +105,8 @@ def opt_ts_python(
         n_images = kw_interpolation.get("n_images")
         if n_images is None:
             n_images = signature(interpolate_geodesic).parameters["n_images"].default
-        path = interpolate_geodesic(elements, coordinates, **kw_interpolation)
-        coordinates_guess = path[n_images // 2]
+        rxn_path = interpolate_geodesic(elements, coordinates, **kw_interpolation)
+        coordinates_guess = rxn_path[n_images // 2]
 
     opt_results = ts_from_gfnff_python(
         elements, coordinates_guess, calculators, e_shift=e_shift, **kw_opt
@@ -168,8 +168,8 @@ def opt_ts_ci_python(
         n_images = kw_interpolation.get("n_images")
         if n_images is None:
             n_images = signature(interpolate_geodesic).parameters["n_images"].default
-        path = interpolate_geodesic(elements, coordinates, **kw_interpolation)
-        coordinates_guess = path[n_images // 2]
+        rxn_path = interpolate_geodesic(elements, coordinates, **kw_interpolation)
+        coordinates_guess = rxn_path[n_images // 2]
 
     coordinates_opt = ts_from_gfnff_ci_python(
         elements, coordinates_guess, calculators, e_shift=e_shift, **kw_opt
@@ -182,7 +182,6 @@ def opt_ts_ci(
     elements: Union[Sequence[int], Sequence[str]],
     coordinates: Sequence[Array2D],
     coordinates_guess: Optional[Array2D] = None,
-    atomic_charges: Optional[list[float]] = None,
     e_shift: Optional[float] = None,
     kw_topo: Optional[Mapping] = None,
     kw_shift: Optional[Mapping] = None,
@@ -194,7 +193,6 @@ def opt_ts_ci(
         elements: elements as symbols or numbers
         coordinates: sequence containing the coordinates of each ground states [Å]
         coordinates_guess: initial guess for the transition state [Å]
-        atomic_charges: atomic charges (not implemented yet)
         e_shift: energy shift between reference (GFN2-xTB by default) and GFN-FF reaction energies
         kw_topo: parameters for topologies calculation
         kw_shift: parameters for energy shift calculation
@@ -212,9 +210,7 @@ def opt_ts_ci(
     if kw_interpolation is None:
         kw_interpolation = {}
 
-    topologies = setup_gfnff_topologies(
-        elements, coordinates, atomic_charges=atomic_charges, **kw_topo
-    )
+    topologies = setup_gfnff_topologies(elements, coordinates, **kw_topo)
 
     shift_results: Optional[tuple[float, float, float]]
     if e_shift is None:
@@ -232,8 +228,8 @@ def opt_ts_ci(
         n_images = kw_interpolation.get("n_images")
         if n_images is None:
             n_images = signature(interpolate_geodesic).parameters["n_images"].default
-        path = interpolate_geodesic(elements, coordinates, **kw_interpolation)
-        coordinates_guess = path[n_images // 2]
+        rxn_path = interpolate_geodesic(elements, coordinates, **kw_interpolation)
+        coordinates_guess = rxn_path[n_images // 2]
 
     # Save the optimisation steps if path for optimisation is given
     if "path" in kw_opt and kw_opt["path"] is not None:
@@ -269,7 +265,6 @@ def opt_ts(
     elements: Union[Sequence[int], Sequence[str]],
     coordinates: Sequence[Array2D],
     coordinates_guess: Optional[Array2D] = None,
-    atomic_charges: Optional[list[float]] = None,
     e_shift: Optional[float] = None,
     kw_topo: Optional[Mapping] = None,
     kw_shift: Optional[Mapping] = None,
@@ -281,7 +276,6 @@ def opt_ts(
         elements: TS elements as symbols or numbers
         coordinates: sequence containing the coordinates of each ground state [Å]
         coordinates_guess: initial guess for the transition state [Å]
-        atomic_charges: atomic charges (not implemented yet)
         e_shift: energy shift between reference (GFN2-xTB by default) and GFN-FF reaction energies
         kw_topo: parameters for topologies calculation
         kw_shift: parameters for energy shift calculation
@@ -298,9 +292,7 @@ def opt_ts(
         kw_topo = {}
     if kw_interpolation is None:
         kw_interpolation = {}
-    topologies = setup_gfnff_topologies(
-        elements, coordinates, atomic_charges=atomic_charges, **kw_topo
-    )
+    topologies = setup_gfnff_topologies(elements, coordinates, **kw_topo)
     shift_results: Optional[tuple[float, float, float]]
     if e_shift is None:
         shift_results = calculate_e_shift_xtb(
@@ -313,8 +305,8 @@ def opt_ts(
         n_images = kw_interpolation.get("n_images")
         if n_images is None:
             n_images = signature(interpolate_geodesic).parameters["n_images"].default
-        path = interpolate_geodesic(elements, coordinates, **kw_interpolation)
-        coordinates_guess = path[n_images // 2]
+        rxn_path = interpolate_geodesic(elements, coordinates, **kw_interpolation)
+        coordinates_guess = rxn_path[n_images // 2]
 
     opt_results = ts_from_gfnff(
         elements, coordinates_guess, topologies, e_shift=e_shift, **kw_opt
@@ -347,9 +339,9 @@ def opt_ts(
 def setup_gfnff_topologies(  # noqa: C901
     elements: Union[Sequence[int], Sequence[str]],
     coordinates: Sequence[ArrayLike2D],
-    atomic_charges: Optional[list[float]] = None,
     keywords: Optional[list[str]] = None,
     xcontrol_keywords: Optional[MutableMapping[str, list[str]]] = None,
+    fragment_charges: Optional[Sequence[Optional[list[int]]]] = None,
     adjacency_matrices: Optional[Sequence[Array2D]] = None,
     paths: Optional[Sequence[Union[str, PathLike]]] = None,
 ) -> list[bytes]:
@@ -357,9 +349,9 @@ def setup_gfnff_topologies(  # noqa: C901
     Args:
         elements: elements as symbols or numbers
         coordinates: coordinates of each ground state [Å]
-        atomic_charges: atomic charges (not implemented yet)
         keywords: xtb command line keywords
         xcontrol_keywords: input instructions to write in the xtb xcontrol file
+        fragment_charges: charge of each non-covalently bound fragment, for each ground state
         adjacency_matrices: connectivity matrices of each ground state
         paths: folders to save the xtb runs
     Returns:
@@ -383,6 +375,8 @@ def setup_gfnff_topologies(  # noqa: C901
 
     topologies = []
     for i, (coordinates_, xtb_path) in enumerate(zip(coordinates, xtb_paths)):
+
+        # Write topology in xtb xcontrol file if adjacency matrices are given
         if adjacency_matrices is not None:
 
             # TODO: Update this requirement when xtb >6.7.1 is released
@@ -407,17 +401,15 @@ def setup_gfnff_topologies(  # noqa: C901
             else:
                 xcontrol_keywords = {"ffnb": ffnb_lines}
 
-        if atomic_charges and not path.isfile(xtb_path / "charges"):
-            with open(xtb_path / "charges", "w") as f:
-                for charge in atomic_charges:
-                    f.write(f"{charge}\n")
         run_xtb(
             elements,
             coordinates_,
             path=xtb_path,
             keywords=keywords,
             xcontrol_keywords=xcontrol_keywords,
+            fragment_charges=fragment_charges[i] if fragment_charges else None,
         )
+
         with open(xtb_path / "gfnff_topo", "rb") as f:
             topology = f.read()
         topologies.append(topology)
@@ -490,6 +482,7 @@ def opt_constrained_complex(  # noqa: C901
     fix_atoms: Optional[Sequence[int]] = None,
     keywords: Optional[list[str]] = None,
     xcontrol_keywords: Optional[MutableMapping[str, list[str]]] = None,
+    fragment_charges: Optional[list[int]] = None,
     fc: Optional[float] = None,
     path: Optional[Union[str, PathLike]] = None,
 ) -> Array2D:
@@ -534,6 +527,7 @@ def opt_constrained_complex(  # noqa: C901
         coordinates,
         keywords=keywords,
         xcontrol_keywords=xcontrol_keywords,
+        fragment_charges=fragment_charges,
         path=path,
     )
 

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from os import PathLike
+from pathlib import Path
 
 import numpy as np
 
@@ -20,7 +20,7 @@ from polanyi.utils import convert_elements
 import warnings
 
 
-def read_xyz(file: str | PathLike) -> tuple[Array1D, Array2D | Array3D]:
+def read_xyz(file: str | Path) -> tuple[Array1D, Array2D | Array3D]:
     """Reads xyz file.
 
     Returns elements as written (atomic numbers or symbols) and coordinates.
@@ -98,7 +98,7 @@ def get_xyz_string(
 
 
 def write_xyz(
-    file: str | PathLike,
+    file: str | Path,
     elements: Iterable[int] | Iterable[str],
     coordinates: ArrayLike2D | ArrayLike3D,
     comments: [Iterable[str]] | None = None,
@@ -152,7 +152,7 @@ def get_coord_string(
 
 
 def write_coord(
-    file: str | PathLike,
+    file: str | Path,
     elements: Iterable[int] | Iterable[str],
     coordinates: ArrayLike2D,
 ) -> None:
@@ -162,7 +162,7 @@ def write_coord(
         f.write(coord_string)
 
 
-def read_coord(file: str | PathLike) -> tuple[Array1D, Array2D]:
+def read_coord(file: str | Path) -> tuple[Array1D, Array2D]:
     """Read Turbomole coord file and return elements and coordinates.
 
     Args:
@@ -199,7 +199,7 @@ def read_coord(file: str | PathLike) -> tuple[Array1D, Array2D]:
 
 
 def write_gradient(
-    file: str | PathLike,
+    file: str | Path,
     elements: Iterable[int] | Iterable[str],
     coordinates: ArrayLike2D,
     energy: float,

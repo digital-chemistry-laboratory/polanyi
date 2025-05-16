@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from collections.abc import Iterable, MutableMapping
 import functools
-from os import PathLike
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -28,7 +27,7 @@ def e_g_function(  # noqa: C901
     xcontrol_keywords: MutableMapping[str, list[str]] | None = None,
     e_shift: float = 0,
     coupling: float = 0,
-    path: str | PathLike | None = None,
+    path: str | Path | None = None,
 ) -> float | Array1D | Array2D:
     """Find TS with GFN-FF."""
     if keywords is None:
@@ -135,7 +134,7 @@ def ts_from_gfnff(
     coupling: float = 0,
     maxsteps: int = 100,
     tol: float = 1e-6,
-    path: str | PathLike | None = None,
+    path: str | Path | None = None,
 ) -> Array2D:
     """Optimize TS with GFNFF."""
     coordinates = np.asarray(coordinates)

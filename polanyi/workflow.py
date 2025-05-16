@@ -5,7 +5,6 @@ from __future__ import annotations
 from collections.abc import MutableMapping, Sequence
 from dataclasses import dataclass
 from inspect import signature
-from os import PathLike
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import textwrap
@@ -220,7 +219,7 @@ def setup_gfnff_topologies(  # noqa: C901
     xcontrol_keywords: MutableMapping[str, list[str]] | None = None,
     fragment_charges: Sequence[list[int] | None] | None = None,
     adjacency_matrices: Sequence[Array2D] | None = None,
-    paths: Sequence[str | PathLike] | None = None,
+    paths: Sequence[str | Path] | None = None,
 ) -> list[bytes]:
     """Set up topologies for GFN-FF calculation.
     Args:
@@ -344,7 +343,7 @@ def opt_constrained_complex(  # noqa: C901
     xcontrol_keywords: MutableMapping[str, list[str]] | None = None,
     fragment_charges: list[int] | None = None,
     fc: float | None = None,
-    path: str | PathLike | None = None,
+    path: str | Path | None = None,
 ) -> Array2D:
     """Optimize constrained complex."""
     rmsd_atoms = set(range(1, len(elements) + 1))
@@ -403,7 +402,7 @@ def crest_constrained(  # noqa: C901
     keywords: list[str] | None = None,
     xcontrol_keywords: MutableMapping[str, list[str]] | None = None,
     fc: float | None = None,
-    path: str | PathLike | None = None,
+    path: str | Path | None = None,
 ) -> ConformerEnsemble:
     """Run constrained CREST calculation."""
     rmsd_atoms = set(range(1, len(elements) + 1))
@@ -471,7 +470,7 @@ def calculate_e_shift_xtb(
     keywords_sp: list[str] | None = None,
     xcontrol_keywords_ff: MutableMapping[str, list[str]] | None = None,
     xcontrol_keywords_sp: MutableMapping[str, list[str]] | None = None,
-    paths: Sequence[str | PathLike] | None = None,
+    paths: Sequence[str | Path] | None = None,
 ) -> tuple[float, float, float]:
     """Calculate energy shift between reference (default: GFN2-xTB) and GFN-FF reaction energies.
     Args:

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 import functools
-from os import PathLike
 from pathlib import Path
 from typing import Any
 
@@ -27,7 +26,7 @@ def e_g_function_python(
     calculators: Iterable[XTBCalculator],
     e_shift: float = 0,
     coupling: float = 0,
-    path: str | PathLike | None = None,
+    path: str | Path | None = None,
 ) -> tuple[float, Array2D]:
     """Find TS with GFN-FF."""
     if path is None:
@@ -76,7 +75,7 @@ def ts_from_gfnff_python(
     maxsteps: int = 100,
     params: dict[str, Any] | None = None,
     active_bonds: Sequence[tuple[int]] | None = None,
-    path: str | PathLike | None = None,
+    path: str | Path | None = None,
 ) -> Array2D:
     """Optimize TS with GFNFF."""
     if params is None:

@@ -8,7 +8,6 @@ from dataclasses import dataclass, field
 import functools
 from io import StringIO
 import os
-from os import PathLike
 from pathlib import Path
 import tempfile
 from tempfile import TemporaryDirectory
@@ -72,7 +71,7 @@ def e_g_function(
     xcontrol_keywords: MutableMapping[str, list[str]] | None = None,
     e_shift: float = 0,
     coupling: float = 0,
-    path: str | PathLike | None = None,
+    path: str | Path | None = None,
 ) -> tuple[float, Array2D]:
     """Find TS with GFN-FF using xtb command line.
     Args:
@@ -153,7 +152,7 @@ def e_g_function_ci(
     keywords: list[str] | None = None,
     xcontrol_keywords: MutableMapping[str, list[str]] | None = None,
     e_shift: float = 0,
-    path: str | PathLike | None = None,
+    path: str | Path | None = None,
 ) -> tuple[float, Array2D]:
     """Find TS with GFN-FF for conical intersection using xtb command line.
     Args:
@@ -216,7 +215,7 @@ def ts_from_gfnff(
     callback: Callable[[dict[str, Any]], None] | None = None,
     conv_params: dict[str, Any] | None = None,
     solver: str = "geometric",
-    path: str | PathLike | None = None,
+    path: str | Path | None = None,
 ) -> OptResults:
     """Optimize TS with GFNFF.
     Args:
@@ -289,7 +288,7 @@ def ts_from_gfnff_ci(
     sigma: float = 3.5,
     callback: Callable[[dict[str, Any]], None] | None = None,
     conv_params: dict[str, Any] | None = None,
-    path: str | PathLike | None = None,
+    path: str | Path | None = None,
 ) -> Array2D:
     """Optimize TS from conical intersection with GFNFF.
     Args:

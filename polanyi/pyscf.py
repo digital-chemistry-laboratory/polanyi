@@ -27,7 +27,7 @@ from polanyi import config
 from polanyi.evb import evb_eigenvalues
 from polanyi.typing import Array2D, ArrayLike2D
 from polanyi.utils import convert_elements
-from polanyi.xtb import parse_engrad, run_xtb, XTBCalculator
+from polanyi.xtb import parse_engrad, run_xtb
 
 
 @dataclass
@@ -204,86 +204,6 @@ def e_g_function_ci(
     return energy, gradient
 
 
-def e_g_function_python(
-    mol: "Mole",
-    calculators: Sequence[XTBCalculator],
-    results: OptResults,
-    e_shift: float = 0,
-    coupling: float = 0,
-    path: Optional[Union[str, PathLike]] = None,
-) -> tuple[float, Array2D]:
-    """Find TS with GFN-FF using xtb-python.
-    Args:
-        mol: PySCF molecule
-        calculators: xtb-python calculators
-        results: OptResults object to store optimization results
-        e_shift: energy shift between GFN2-xTB and GFN-FF reaction energy
-        coupling: coupling constant between the ground states force fields
-        path: path where to run calculations
-    Returns:
-        tuple of adiabatic energy and gradient
-    """
-    if path is None:
-        path = Path.cwd()
-    else:
-        path = Path(path)
-    coordinates: np.ndarray = np.ascontiguousarray(mol.atom_coords(unit="ANG"))
-
-    energies = []
-    gradients = []
-    for calculator in calculators:
-        calculator.coordinates = coordinates
-        energy, gradient = calculator.sp(return_gradient=True)
-        energies.append(energy)
-        gradients.append(gradient)
-
-    energies[-1] += e_shift
-
-    # Solve EVB
-    energies_ad, gradients_ad, indices = evb_eigenvalues(
-        energies, gradients=gradients, coupling=coupling
-    )
-
-    # Store results
-    results.coordinates.append(coordinates)
-    results.energies_diabatic.append(energies)
-    results.energies_adiabatic.append(energies_ad)
-    results.gradients_diabatic.append(gradients)
-    results.gradients_adiabatic.append(gradients_ad)
-    results.indices.append(indices)
-
-    return energies_ad[1], gradients_ad[1]
-
-
-def e_g_function_ci_python(
-    mol: "Mole",
-    calculator: XTBCalculator,
-    e_shift: float = 0,
-    path: Optional[Union[str, PathLike]] = None,
-) -> tuple[float, Array2D]:
-    """Find TS with GFN-FF for conical intersection using xtb-python.
-    Args:
-        mol: PySCF molecule
-        calculator: xtb-python calculator
-        e_shift: energy shift between GFN2-xTB and GFN-FF reaction energy
-        path: path where to run calculations
-    Returns:
-        tuple of energy and gradient
-    """
-    if path is None:
-        path = Path.cwd()
-    else:
-        path = Path(path)
-
-    coordinates = np.ascontiguousarray(mol.atom_coords(unit="ANG"))
-
-    calculator.coordinates = coordinates
-    energy, gradient = calculator.sp(return_gradient=True)
-    energy += e_shift
-
-    return energy, gradient
-
-
 def ts_from_gfnff(
     elements: Union[Sequence[int], Sequence[str]],
     coordinates: ArrayLike2D,
@@ -357,73 +277,6 @@ def ts_from_gfnff(
     return results
 
 
-def ts_from_gfnff_python(
-    elements: Union[Sequence[int], Sequence[str]],
-    coordinates: ArrayLike2D,
-    calculators: Sequence[XTBCalculator],
-    e_shift: float = 0,
-    coupling: float = 0.001,
-    maxsteps: int = 100,
-    callback: Optional[Callable[[dict[str, Any]], None]] = None,
-    conv_params: Optional[dict[str, Any]] = None,
-    solver: str = "geometric",
-    path: Optional[Union[str, PathLike]] = None,
-) -> OptResults:
-    """Optimize TS with GFNFF.
-    Args:
-        elements: TS elements as symbols or numbers
-        coordinates: sequence containing the coordinates of each ground states [Å]
-        calculators: xtb-python calculators
-        e_shift: energy shift between GFN2-xTB and GFN-FF reaction energy
-        coupling: coupling constant between the ground states force fields
-        maxsteps: maximum number of optimization steps
-        callback: function to call after each optimization step
-        conv_params: convergence parameters for PySCF optimization
-        solver: PySCF optimization solver (geometric or pyberny)
-        path: path where to run calculations
-    Returns:
-        results of TS optimization
-    """
-    if conv_params is None:
-        conv_params = {}
-    if path is None:
-        path = Path.cwd()
-    else:
-        path = Path(path)
-        if path.exists():
-            shutil.rmtree(path)
-        path.mkdir(parents=True)
-    results = OptResults()
-
-    mole = get_pyscf_mole(elements, coordinates)
-
-    e_g_partial = functools.partial(
-        e_g_function_python,
-        calculators=calculators,
-        results=results,
-        e_shift=e_shift,
-        coupling=coupling,
-        path=path,
-    )
-
-    if solver == "pyberny":
-        pyscf_solver = berny_solver
-    elif solver == "geometric":
-        pyscf_solver = geometric_solver
-    with redirect_stdout(StringIO()) as stdout, redirect_stderr(StringIO()) as stderr:
-        pyscf_solver.optimize(
-            as_pyscf_method(mole, e_g_partial),
-            maxsteps=maxsteps,
-            callback=callback,
-            **conv_params,
-        )
-
-    results.stdout = stdout.getvalue()
-    results.stderr = stderr.getvalue()
-
-    return results
-
-
 def ts_from_gfnff_ci(
     elements: Union[Sequence[int], Sequence[str]],
     coordinates: ArrayLike2D,
@@ -491,72 +344,6 @@ def ts_from_gfnff_ci(
         xcontrol_keywords=xcontrol_keywords,
         e_shift=e_shift,
         path=path_2,
-    )
-
-    _, opt_mole = optimize_ci(
-        [as_pyscf_method(mole, e_g_partial_1), as_pyscf_method(mole, e_g_partial_2)],
-        maxsteps=maxsteps,
-        alpha=alpha,
-        sigma=sigma,
-        callback=callback,
-        **conv_params,
-    )
-
-    opt_coordinates: Array2D = np.ascontiguousarray(opt_mole.atom_coords(unit="ANG"))
-
-    return opt_coordinates
-
-
-def ts_from_gfnff_ci_python(
-    elements: Union[Sequence[int], Sequence[str]],
-    coordinates: ArrayLike2D,
-    calculators: Sequence[XTBCalculator],
-    e_shift: float = 0,
-    maxsteps: int = 100,
-    alpha: float = 0.025,
-    sigma: float = 3.5,
-    callback: Optional[Callable[[dict[str, Any]], None]] = None,
-    conv_params: Optional[dict[str, Any]] = None,
-    path: Optional[Union[str, PathLike]] = None,
-) -> Array2D:
-    """Optimize TS with GFNFF.
-    Args:
-        elements: TS elements as symbols or numbers
-        coordinates: sequence containing the coordinates of each ground states [Å]
-        calculators: xtb-python calculators
-        e_shift: energy shift between GFN2-xTB and GFN-FF reaction energy
-        maxsteps: maximum number of optimization steps
-        alpha: width parameter for penalty function in conical interesection optimization
-        sigma: scaling parameter for penalty function in conical interesection optimization
-        callback: function to call after each optimization step
-        conv_params: convergence parameters for PySCF optimization
-        path: path where to run calculations
-    Returns:
-        optimized TS coordinates [Å]
-    """
-    if conv_params is None:
-        conv_params = {}
-    if path is None:
-        path = Path.cwd()
-    else:
-        path = Path(path)
-        if path.exists():
-            shutil.rmtree(path)
-        path.mkdir(parents=True)
-
-    mole = get_pyscf_mole(elements, coordinates)
-
-    e_g_partial_1 = functools.partial(
-        e_g_function_ci_python,
-        calculator=calculators[0],
-        e_shift=0,
-        path=path,
-    )
-    e_g_partial_2 = functools.partial(
-        e_g_function_ci_python,
-        calculator=calculators[1],
-        e_shift=e_shift,
-        path=path,
     )
 
     _, opt_mole = optimize_ci(

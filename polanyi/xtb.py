@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable, MutableMapping, Sequence
+from collections.abc import Iterable, MutableMapping
 from itertools import islice
 import json
 import os
@@ -12,123 +12,18 @@ import shutil
 import subprocess
 from subprocess import CompletedProcess
 from tempfile import TemporaryDirectory
-from typing import Literal, Optional, overload, Union
+from typing import Optional, Union
 
 from loguru import logger
 from morfeus.conformer import ConformerEnsemble
 import numpy as np
-from wurlitzer import pipes
-from xtb.interface import Calculator
-from xtb.utils import get_method, get_solvent
 
 from polanyi import config
-from polanyi.data import ANGSTROM_TO_BOHR
 from polanyi.io import read_xyz, write_coord, write_xyz
-from polanyi.typing import Array1D, Array2D, ArrayLike2D
-from polanyi.utils import convert_elements
+from polanyi.typing import Array2D, ArrayLike2D
 
 
-class XTBCalculator:
-    """xTB calculator class.
-
-    Args:
-        elements: elements as atomic numbers
-        coordinates: coordinates [Å]
-
-    Attributes:
-        calculator: xtb-python calculator
-    """
-
-    calculator: Calculator
-
-    def __init__(
-        self,
-        elements: Union[Iterable[int], Iterable[str]],
-        coordinates: ArrayLike2D,
-        method: str = "GFNFF",
-        charge: int = 0,
-        solvent: Optional[str] = None,
-    ) -> None:
-        elements = np.array(convert_elements(elements, output="numbers"))
-        coordinates = np.ascontiguousarray(coordinates)
-        coordinates_au: Array2D = coordinates * ANGSTROM_TO_BOHR
-        calc_method = get_method(method)
-        if calc_method is None:
-            raise ValueError("Calculation method not valid")
-        with pipes() as _:
-            calculator = Calculator(
-                calc_method, elements, coordinates_au, charge=charge
-            )
-        if solvent is not None:
-            xtb_solvent = get_solvent(solvent)
-            if xtb_solvent is None:
-                raise ValueError(f"{solvent} is not supported.")
-            calculator.set_solvent(xtb_solvent)
-        self.calculator = calculator
-        self._solvent = solvent
-        self._charge = charge
-        self._elements = elements
-        self._coordinates = coordinates
-        self._method = method
-
-    @property
-    def elements(self) -> Array1D:
-        """Elements."""
-        return self._elements
-
-    @property
-    def solvent(self) -> Optional[str]:
-        """Solvent."""
-        return self._solvent
-
-    @property
-    def charge(self) -> int:
-        """Charge."""
-        return self._charge
-
-    @property
-    def coordinates(self) -> Array2D:
-        """Coordinates [Å]."""
-        return self._coordinates
-
-    @coordinates.setter
-    def coordinates(self, coordinates: Array2D) -> None:
-        """Convert coordinates to Bohr as needed for xTB"""
-        self.calculator.update(coordinates * ANGSTROM_TO_BOHR)
-        self._coordinates = coordinates
-
-    @property
-    def method(self) -> str:
-        """Method."""
-        return self._method
-
-    # Disable black formatting for the overloaded functions otherwise it conflicts with flake8
-    # fmt: off
-    @overload
-    def sp(
-        self, return_gradient: Literal[True]
-    ) -> tuple[float, Array2D]:
-        ...
-
-    @overload
-    def sp(self, return_gradient: Literal[False]) -> float:
-        ...
-    # fmt: on
-
-    def sp(self, return_gradient: bool = True) -> Union[float, tuple[float, Array2D]]:
-        """Do single point calculation and return result."""
-        with pipes() as _:
-            results = self.calculator.singlepoint()
-        energy: float = results.get_energy()
-
-        if return_gradient is True:
-            gradient = results.get_gradient()
-            return energy, gradient
-        else:
-            return energy
-
-
-def run_xtb(
+def run_xtb(  # noqa: C901
     elements: Union[Iterable[int], Iterable[str]],
     coordinates: ArrayLike2D,
     path: Optional[Union[str, PathLike]] = None,

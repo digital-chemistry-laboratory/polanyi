@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - All xtb calculations now run from command line instead of using the deprecated `xtb-python` Python API
-- `setup_gfnff_calculators` function renamed in `setup_gfnff_topologies`
+- `setup_gfnff_topologies` function renamed in `setup_gfnff_topologies`
 
 
 ### Removed
@@ -25,7 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Update the implementation of conical intersection optimisation to the version 1.0.1 of the geomeTRIC library
 - Fix that `optimize_ci` was retuning the unmodified coordinates instead of the optimised ones
 - Fix that some different xtb calculations were uncorrectly running in the same folder
-- Add missing `--gfnff` keywords for xtb calculations (in `setup_gfnff_calculators` and `ts_from_gfnff` functions)
+- Add missing `--gfnff` keywords for xtb calculations (in `setup_gfnff_topologies` and `ts_from_gfnff` functions)
 - Add missing `--grad` keyword for xtb calculations (in `e_g_function` function)
 
 ## [0.1.0] - 2025-04-03

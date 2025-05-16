@@ -20,9 +20,7 @@ from polanyi.geometry import two_frags_from_bo
 from polanyi.interpolation import interpolate_geodesic
 from polanyi.pyscf import (
     OptResults,
-    ts_from_gfnff_python,
     ts_from_gfnff,
-    ts_from_gfnff_ci_python,
     ts_from_gfnff_ci,
 )
 from polanyi.typing import Array1D, Array2D, ArrayLike2D
@@ -32,7 +30,6 @@ from polanyi.xtb import (
     parse_energy,
     run_xtb,
     wbo_xtb,
-    XTBCalculator,
 )
 from polanyi.io import get_xyz_string
 from polanyi.utils import is_min_xtb_version
@@ -56,126 +53,6 @@ class ShiftResults:
     energy_diff_ff: float
     energies_gfn: list[float]
     energies_ff: list[float]
-
-
-def opt_ts_python(
-    elements: Union[Sequence[int], Sequence[str]],
-    coordinates: Sequence[Array2D],
-    coordinates_guess: Optional[Array2D] = None,
-    e_shift: Optional[float] = None,
-    kw_calculators: Optional[Mapping] = None,
-    kw_shift: Optional[Mapping] = None,
-    kw_opt: Optional[Mapping] = None,
-    kw_interpolation: Optional[Mapping] = None,
-) -> Results:
-    """Optimize transition state with xtb-python and PySCF.
-    Args:
-        elements: elements as symbols or numbers
-        coordinates: sequence containing the coordinates of each ground states [Å]
-        coordinates_guess: initial guess for the transition state [Å]
-        e_shift: energy shift between reference (GFN2-xTB by default) and GFN-FF reaction energies
-        kw_calculators: parameters for topologies calculation
-        kw_shift: parameters for energy shift calculation
-        kw_opt: parameters for optimization
-        kw_interpolation: parameters for the TS interpolation
-    Returns:
-        results: results of the TS optimization
-    """
-    if kw_opt is None:
-        kw_opt = {}
-    if kw_shift is None:
-        kw_shift = {}
-    if kw_calculators is None:
-        kw_calculators = {}
-    if kw_interpolation is None:
-        kw_interpolation = {}
-
-    calculators = setup_gfnff_calculators_python(
-        elements, coordinates, **kw_calculators
-    )
-
-    shift_results: Optional[ShiftResults]
-    if e_shift is None:
-        shift_results = calculate_e_shift_xtb_python(calculators, **kw_shift)
-        e_shift = shift_results.energy_shift
-    else:
-        shift_results = None
-
-    if coordinates_guess is None:
-        n_images = kw_interpolation.get("n_images")
-        if n_images is None:
-            n_images = signature(interpolate_geodesic).parameters["n_images"].default
-        rxn_path = interpolate_geodesic(elements, coordinates, **kw_interpolation)
-        coordinates_guess = rxn_path[n_images // 2]
-
-    opt_results = ts_from_gfnff_python(
-        elements, coordinates_guess, calculators, e_shift=e_shift, **kw_opt
-    )
-
-    results = Results(
-        opt_results=opt_results,
-        coordinates_opt=opt_results.coordinates[-1],
-        shift_results=shift_results,
-    )
-
-    return results
-
-
-def opt_ts_ci_python(
-    elements: Union[Sequence[int], Sequence[str]],
-    coordinates: Sequence[Array2D],
-    coordinates_guess: Optional[Array2D] = None,
-    e_shift: Optional[float] = None,
-    kw_calculators: Optional[Mapping] = None,
-    kw_shift: Optional[Mapping] = None,
-    kw_opt: Optional[Mapping] = None,
-    kw_interpolation: Optional[Mapping] = None,
-) -> Array2D:
-    """Optimize transition state with xtb-python and PySCF using conical intersection.
-    Args:
-        elements: elements as symbols or numbers
-        coordinates: sequence containing the coordinates of each ground states [Å]
-        coordinates_guess: initial guess for the transition state [Å]
-        e_shift: energy shift between reference (GFN2-xTB by default) and GFN-FF reaction energies
-        kw_calculators: parameters for topologies calculation
-        kw_shift: parameters for energy shift calculation
-        kw_opt: parameters for optimization
-        kw_interpolation: parameters for the TS interpolation
-    Returns:
-        coordinates_opt: coordinates of the optimised transition state [Å]
-    """
-    if kw_opt is None:
-        kw_opt = {}
-    if kw_shift is None:
-        kw_shift = {}
-    if kw_calculators is None:
-        kw_calculators = {}
-    if kw_interpolation is None:
-        kw_interpolation = {}
-
-    calculators = setup_gfnff_calculators_python(
-        elements, coordinates, **kw_calculators
-    )
-
-    shift_results: Optional[ShiftResults]
-    if e_shift is None:
-        shift_results = calculate_e_shift_xtb_python(calculators, **kw_shift)
-        e_shift = shift_results.energy_shift
-    else:
-        shift_results = None
-
-    if coordinates_guess is None:
-        n_images = kw_interpolation.get("n_images")
-        if n_images is None:
-            n_images = signature(interpolate_geodesic).parameters["n_images"].default
-        rxn_path = interpolate_geodesic(elements, coordinates, **kw_interpolation)
-        coordinates_guess = rxn_path[n_images // 2]
-
-    coordinates_opt = ts_from_gfnff_ci_python(
-        elements, coordinates_guess, calculators, e_shift=e_shift, **kw_opt
-    )
-
-    return coordinates_opt
 
 
 def opt_ts_ci(
@@ -419,23 +296,6 @@ def setup_gfnff_topologies(  # noqa: C901
             temp_dir.cleanup()
 
     return topologies
-
-
-def setup_gfnff_calculators_python(
-    elements: Union[Sequence[int], Sequence[str]],
-    coordinates: Sequence[ArrayLike2D],
-    charge: int = 0,
-    solvent: Optional[str] = None,
-) -> list[XTBCalculator]:
-    """Sets up force fields for GFNFF calculation."""
-    calculators = []
-    for coordinates_ in coordinates:
-        calculator = XTBCalculator(
-            elements, coordinates_, charge=charge, solvent=solvent
-        )
-        _ = calculator.sp(return_gradient=False)
-        calculators.append(calculator)
-    return calculators
 
 
 def opt_frags_from_complex(
@@ -683,36 +543,3 @@ def calculate_e_shift_xtb(
     e_shift = e_diff_ref - e_diff_ff
 
     return e_shift, e_diff_ref, e_diff_ff
-
-
-def calculate_e_shift_xtb_python(
-    calculators: Sequence[XTBCalculator], method: str = ("GFN2-xTB")
-) -> ShiftResults:
-    """Calculate energy shift between reference (default: GFN2-xTB) and GFN-FF reaction energies."""
-    energies_gfn = []
-    energies_ff = []
-    for calculator in calculators:
-        energy_ff = calculator.sp(return_gradient=False)
-        calculator_sp = XTBCalculator(
-            calculator.elements,
-            calculator.coordinates,
-            method=method,
-            charge=calculator.charge,
-            solvent=calculator.solvent,
-        )
-        energy_gfn = calculator_sp.sp(return_gradient=False)
-        energies_gfn.append(energy_gfn)
-        energies_ff.append(energy_ff)
-    energy_diff_gfn = energies_gfn[-1] - energies_gfn[0]
-    energy_diff_ff = energies_ff[-1] - energies_ff[0]
-    energy_shift = energy_diff_gfn - energy_diff_ff
-
-    results = ShiftResults(
-        energy_shift=energy_shift,
-        energy_diff_gfn=energy_diff_gfn,
-        energy_diff_ff=energy_diff_ff,
-        energies_gfn=energies_gfn,
-        energies_ff=energies_ff,
-    )
-
-    return results

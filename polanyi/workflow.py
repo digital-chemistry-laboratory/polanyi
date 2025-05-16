@@ -247,6 +247,13 @@ def setup_gfnff_topologies(  # noqa: C901
         ]
         xtb_paths = [Path(temp_dir.name) for temp_dir in temp_dirs]
     else:
+        if (Path(paths[0]) / "gfnff_topo").exists() or (
+            Path(paths[1]) / "gfnff_topo"
+        ).exists():
+            raise FileExistsError(
+                f"Paths {paths[0]} or {paths[1]} already contain 'gfnff_topo' files. Remove before new xtb calculations."
+                f"\nIf other files are present, they will be overwritten."
+            )
         xtb_paths = [Path(path) for path in paths]
 
     topologies = []
@@ -257,7 +264,7 @@ def setup_gfnff_topologies(  # noqa: C901
 
             # TODO: Update this requirement when xtb >6.7.1 is released
             if not is_min_xtb_version("bleed"):
-                raise ValueError(
+                raise RuntimeError(
                     "Use bleeding edge version of xtb to give adjacency matrices as input."
                 )
 
@@ -509,6 +516,11 @@ def calculate_e_shift_xtb(
         energies_sp = []
     for coordinates_, topology, xtb_path in zip(coordinates, topologies, xtb_paths):
         xtb_path.mkdir(exist_ok=True)
+        if (xtb_path / "gfnff_topo").exists():
+            raise FileExistsError(
+                f"Path {xtb_path} already contains a 'gfnff_topo' file. Remove before new xtb calculations."
+                f"\nIf other files are present, they will be overwritten."
+            )
         with open(xtb_path / "gfnff_topo", "wb") as f:
             f.write(topology)
         run_xtb(

@@ -316,6 +316,11 @@ def ts_from_gfnff_ci(
         path.mkdir(parents=True)
         path_1 = path / "0"
         path_2 = path / "1"
+        if (path_1 / "gfnff_topo").exists() or (path_2 / "gfnff_topo").exists():
+            raise FileExistsError(
+                f"Paths {path_1} or {path_2} already contain 'gfnff_topo' files. Remove before new xtb calculations."
+                f"\nIf other files are present, they will be overwritten."
+            )
     else:
         path_1 = None
         path_2 = None

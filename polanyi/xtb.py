@@ -12,7 +12,6 @@ import shutil
 import subprocess
 from subprocess import CompletedProcess
 from tempfile import TemporaryDirectory
-from typing import Optional, Union
 
 from loguru import logger
 from morfeus.conformer import ConformerEnsemble
@@ -24,12 +23,12 @@ from polanyi.typing import Array2D, ArrayLike2D
 
 
 def run_xtb(  # noqa: C901
-    elements: Union[Iterable[int], Iterable[str]],
+    elements: Iterable[int] | Iterable[str],
     coordinates: ArrayLike2D,
-    path: Optional[Union[str, PathLike]] = None,
-    keywords: Optional[Iterable[str]] = None,
-    xcontrol_keywords: Optional[MutableMapping[str, list[str]]] = None,
-    fragment_charges: Optional[list[int]] = None,
+    path: str | PathLike | None = None,
+    keywords: Iterable[str] | None = None,
+    xcontrol_keywords: MutableMapping[str, list[str]] | None = None,
+    fragment_charges: list[int] | None = None,
 ) -> CompletedProcess:
     """Run standalone xtb from command line."""
     if keywords is None:
@@ -91,11 +90,11 @@ def run_xtb(  # noqa: C901
 
 
 def run_crest(
-    elements: Union[Iterable[int], Iterable[str]],
+    elements: Iterable[int] | Iterable[str],
     coordinates: ArrayLike2D,
-    path: Optional[Union[str, PathLike]] = None,
-    keywords: Optional[Iterable[str]] = None,
-    xcontrol_keywords: Optional[MutableMapping[str, list[str]]] = None,
+    path: str | PathLike | None = None,
+    keywords: Iterable[str] | None = None,
+    xcontrol_keywords: MutableMapping[str, list[str]] | None = None,
 ) -> CompletedProcess:
     """Run standalone xtb in from command line."""
     if keywords is None:
@@ -133,7 +132,7 @@ def run_crest(
 
 
 def write_xcontrol(
-    file: Union[str, PathLike],
+    file: str | PathLike,
     keywords: MutableMapping[str, list[str]],
 ) -> None:
     """Write input instructions to xTB xcontrol file.
@@ -154,7 +153,7 @@ def write_xcontrol(
 
 
 def write_chrg(
-    file: Union[str, PathLike],
+    file: str | PathLike,
     fragment_charges: list[int],
 ) -> None:
     """Write fragment charges in xtb .CHRG file
@@ -173,12 +172,12 @@ def write_chrg(
 
 
 def opt_xtb(
-    elements: Union[Iterable[int], Iterable[str]],
+    elements: Iterable[int] | Iterable[str],
     coordinates: ArrayLike2D,
-    keywords: Optional[Iterable[str]] = None,
-    xcontrol_keywords: Optional[MutableMapping[str, list[str]]] = None,
-    fragment_charges: Optional[list[int]] = None,
-    path: Optional[Union[str, PathLike]] = None,
+    keywords: Iterable[str] | None = None,
+    xcontrol_keywords: MutableMapping[str, list[str]] | None = None,
+    fragment_charges: list[int] | None = None,
+    path: str | PathLike | None = None,
 ) -> Array2D:
     """Calculate xtb-optimized geometry.
     Args:
@@ -217,11 +216,11 @@ def opt_xtb(
 
 
 def opt_crest(
-    elements: Union[Iterable[int], Iterable[str]],
+    elements: Iterable[int] | Iterable[str],
     coordinates: ArrayLike2D,
-    keywords: Optional[Iterable[str]] = None,
-    xcontrol_keywords: Optional[MutableMapping[str, list[str]]] = None,
-    path: Optional[Union[str, PathLike]] = None,
+    keywords: Iterable[str] | None = None,
+    xcontrol_keywords: MutableMapping[str, list[str]] | None = None,
+    path: str | PathLike | None = None,
 ) -> ConformerEnsemble:
     """Returns xtb-optimized geometry."""
     if keywords is None:
@@ -249,11 +248,11 @@ def opt_crest(
 
 
 def wbo_xtb(
-    elements: Union[Iterable[int], Iterable[str]],
+    elements: Iterable[int] | Iterable[str],
     coordinates: ArrayLike2D,
-    keywords: Optional[list[str]] = None,
-    xcontrol_keywords: Optional[MutableMapping[str, list[str]]] = None,
-    path: Optional[Union[str, PathLike]] = None,
+    keywords: list[str] | None = None,
+    xcontrol_keywords: MutableMapping[str, list[str]] | None = None,
+    path: str | PathLike | None = None,
 ) -> Array2D:
     """Returns wbo bond order matrix from xtb."""
     if path is None:
@@ -278,14 +277,14 @@ def wbo_xtb(
 
 
 def ts_from_gfnff_xtb(
-    elements: Union[Iterable[int], Iterable[str]],
+    elements: Iterable[int] | Iterable[str],
     coordinates: ArrayLike2D,
     topologies: tuple[bytes, bytes],
     e_shift: float = 0,
     coupling: float = 0,
-    keywords: Optional[list[str]] = None,
-    xcontrol_keywords: Optional[MutableMapping[str, list[str]]] = None,
-    path: Optional[Union[str, PathLike]] = None,
+    keywords: list[str] | None = None,
+    xcontrol_keywords: MutableMapping[str, list[str]] | None = None,
+    path: str | PathLike | None = None,
 ) -> Array2D:
     """Optimize TS with GFNFF."""
     if path is None:
@@ -371,7 +370,7 @@ def ts_from_gfnff_xtb(
     return opt_coordinates
 
 
-def parse_wbo(file: Union[str, PathLike], n_atoms: Optional[int] = None) -> Array2D:
+def parse_wbo(file: str | PathLike, n_atoms: int | None = None) -> Array2D:
     """Returns bond order matrix from xtb wbo file.
 
     The number of atoms will be guessed from the largest atom index in the file. This
@@ -407,7 +406,7 @@ def parse_wbo(file: Union[str, PathLike], n_atoms: Optional[int] = None) -> Arra
     return bo_matrix
 
 
-def parse_engrad(file: Union[str, PathLike]) -> tuple[float, Array2D]:  # noqa: C901
+def parse_engrad(file: str | PathLike) -> tuple[float, Array2D]:  # noqa: C901
     """Parse xtb engrad file to return energy and gradient."""
 
     def read_atoms(iterlines: Iterable[str]) -> int:
@@ -450,7 +449,7 @@ def parse_engrad(file: Union[str, PathLike]) -> tuple[float, Array2D]:  # noqa: 
     return energy, gradient
 
 
-def parse_energy_json(file: Union[str, PathLike]) -> float:
+def parse_energy_json(file: str | PathLike) -> float:
     """Parse energy from xtb JSON output."""
     with open(file) as f:
         data = json.load(f)
@@ -458,7 +457,7 @@ def parse_energy_json(file: Union[str, PathLike]) -> float:
     return energy
 
 
-def parse_hessian(file: Union[str, PathLike]) -> Array2D:
+def parse_hessian(file: str | PathLike) -> Array2D:
     """Parse hessian for xtb.
 
     Args:
@@ -482,7 +481,7 @@ def parse_hessian(file: Union[str, PathLike]) -> Array2D:
     return hessian
 
 
-def parse_energy(file: Union[str, PathLike]) -> float:
+def parse_energy(file: str | PathLike) -> float:
     """Parse energy from xtb log file.
 
     Args:

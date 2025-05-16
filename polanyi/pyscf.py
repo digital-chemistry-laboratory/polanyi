@@ -13,7 +13,7 @@ from pathlib import Path
 import tempfile
 from tempfile import TemporaryDirectory
 import shutil
-from typing import Any, Optional, Union
+from typing import Any
 
 import geometric
 from geometric.engine import ConicalIntersection
@@ -68,11 +68,11 @@ def e_g_function(
     mol: "Mole",
     topologies: Sequence[bytes],
     results: OptResults,
-    keywords: Optional[list[str]] = None,
-    xcontrol_keywords: Optional[MutableMapping[str, list[str]]] = None,
+    keywords: list[str] | None = None,
+    xcontrol_keywords: MutableMapping[str, list[str]] | None = None,
     e_shift: float = 0,
     coupling: float = 0,
-    path: Optional[Union[str, PathLike]] = None,
+    path: str | PathLike | None = None,
 ) -> tuple[float, Array2D]:
     """Find TS with GFN-FF using xtb command line.
     Args:
@@ -150,10 +150,10 @@ def e_g_function(
 def e_g_function_ci(
     mol: "Mole",
     topology: bytes,
-    keywords: Optional[list[str]] = None,
-    xcontrol_keywords: Optional[MutableMapping[str, list[str]]] = None,
+    keywords: list[str] | None = None,
+    xcontrol_keywords: MutableMapping[str, list[str]] | None = None,
     e_shift: float = 0,
-    path: Optional[Union[str, PathLike]] = None,
+    path: str | PathLike | None = None,
 ) -> tuple[float, Array2D]:
     """Find TS with GFN-FF for conical intersection using xtb command line.
     Args:
@@ -205,18 +205,18 @@ def e_g_function_ci(
 
 
 def ts_from_gfnff(
-    elements: Union[Sequence[int], Sequence[str]],
+    elements: Sequence[int] | Sequence[str],
     coordinates: ArrayLike2D,
     topologies: Sequence[bytes],
-    keywords: Optional[list[str]] = None,
-    xcontrol_keywords: Optional[MutableMapping[str, list[str]]] = None,
+    keywords: list[str] | None = None,
+    xcontrol_keywords: MutableMapping[str, list[str]] | None = None,
     e_shift: float = 0,
     coupling: float = 0.001,
     maxsteps: int = 100,
-    callback: Optional[Callable[[dict[str, Any]], None]] = None,
-    conv_params: Optional[dict[str, Any]] = None,
+    callback: Callable[[dict[str, Any]], None] | None = None,
+    conv_params: dict[str, Any] | None = None,
     solver: str = "geometric",
-    path: Optional[Union[str, PathLike]] = None,
+    path: str | PathLike | None = None,
 ) -> OptResults:
     """Optimize TS with GFNFF.
     Args:
@@ -278,18 +278,18 @@ def ts_from_gfnff(
 
 
 def ts_from_gfnff_ci(
-    elements: Union[Sequence[int], Sequence[str]],
+    elements: Sequence[int] | Sequence[str],
     coordinates: ArrayLike2D,
     topologies: Sequence[bytes],
-    keywords: Optional[list[str]] = None,
-    xcontrol_keywords: Optional[MutableMapping[str, list[str]]] = None,
+    keywords: list[str] | None = None,
+    xcontrol_keywords: MutableMapping[str, list[str]] | None = None,
     e_shift: float = 0,
     maxsteps: int = 100,
     alpha: float = 0.025,
     sigma: float = 3.5,
-    callback: Optional[Callable[[dict[str, Any]], None]] = None,
-    conv_params: Optional[dict[str, Any]] = None,
-    path: Optional[Union[str, PathLike]] = None,
+    callback: Callable[[dict[str, Any]], None] | None = None,
+    conv_params: dict[str, Any] | None = None,
+    path: str | PathLike | None = None,
 ) -> Array2D:
     """Optimize TS from conical intersection with GFNFF.
     Args:
@@ -361,7 +361,7 @@ def ts_from_gfnff_ci(
 
 
 def get_pyscf_mole(
-    elements: Union[Sequence[int], Sequence[str]],
+    elements: Sequence[int] | Sequence[str],
     coordinates: ArrayLike2D,
 ) -> "Mole":
     """Return PySCF atom list."""

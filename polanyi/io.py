@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from os import PathLike
-from typing import Optional, Union
 
 import numpy as np
 
@@ -21,7 +20,7 @@ from polanyi.utils import convert_elements
 import warnings
 
 
-def read_xyz(file: Union[str, PathLike]) -> tuple[Array1D, Union[Array2D, Array3D]]:
+def read_xyz(file: str | PathLike) -> tuple[Array1D, Array2D | Array3D]:
     """Reads xyz file.
 
     Returns elements as written (atomic numbers or symbols) and coordinates.
@@ -38,7 +37,7 @@ def read_xyz(file: Union[str, PathLike]) -> tuple[Array1D, Union[Array2D, Array3
         lines = f.readlines()
 
     # Loop over lines and store elements and coordinates
-    elements: list[Union[int, str]] = []
+    elements: list[int | str] = []
     coordinates: list[list[float]] = []
     n_atoms = int(lines[0].strip())
     line_chunks = zip(*[iter(lines)] * (n_atoms + 2))
@@ -61,7 +60,7 @@ def read_xyz(file: Union[str, PathLike]) -> tuple[Array1D, Union[Array2D, Array3
 
 
 def get_xyz_string(
-    elements: Union[Iterable[int], Iterable[str]],
+    elements: Iterable[int] | Iterable[str],
     coordinates: ArrayLike2D,
     decimals: int = 6,
     comment: str = "",
@@ -99,10 +98,10 @@ def get_xyz_string(
 
 
 def write_xyz(
-    file: Union[str, PathLike],
-    elements: Union[Iterable[int], Iterable[str]],
-    coordinates: Union[ArrayLike2D, ArrayLike3D],
-    comments: Optional[Iterable[str]] = None,
+    file: str | PathLike,
+    elements: Iterable[int] | Iterable[str],
+    coordinates: ArrayLike2D | ArrayLike3D,
+    comments: [Iterable[str]] | None = None,
 ) -> None:
     """Writes xyz file from elements and coordinates.
 
@@ -127,7 +126,7 @@ def write_xyz(
 
 
 def get_coord_string(
-    elements: Union[Iterable[int], Iterable[str]], coordinates: ArrayLike2D
+    elements: Iterable[int] | Iterable[str], coordinates: ArrayLike2D
 ) -> str:
     """Returns Turbomole coord string.
 
@@ -153,8 +152,8 @@ def get_coord_string(
 
 
 def write_coord(
-    file: Union[str, PathLike],
-    elements: Union[Iterable[int], Iterable[str]],
+    file: str | PathLike,
+    elements: Iterable[int] | Iterable[str],
     coordinates: ArrayLike2D,
 ) -> None:
     """Write Turbomole coord file."""
@@ -163,7 +162,7 @@ def write_coord(
         f.write(coord_string)
 
 
-def read_coord(file: Union[str, PathLike]) -> tuple[Array1D, Array2D]:
+def read_coord(file: str | PathLike) -> tuple[Array1D, Array2D]:
     """Read Turbomole coord file and return elements and coordinates.
 
     Args:
@@ -200,8 +199,8 @@ def read_coord(file: Union[str, PathLike]) -> tuple[Array1D, Array2D]:
 
 
 def write_gradient(
-    file: Union[str, PathLike],
-    elements: Union[Iterable[int], Iterable[str]],
+    file: str | PathLike,
+    elements: Iterable[int] | Iterable[str],
     coordinates: ArrayLike2D,
     energy: float,
     gradient: ArrayLike1D,

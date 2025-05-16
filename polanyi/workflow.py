@@ -9,7 +9,7 @@ from os import PathLike
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import textwrap
-from typing import Mapping, Optional, Union
+from typing import Mapping
 
 from morfeus.conformer import ConformerEnsemble
 import numpy as np
@@ -41,7 +41,7 @@ class Results:
 
     opt_results: OptResults
     coordinates_opt: Array2D
-    shift_results: Optional[ShiftResults] = None
+    shift_results: ShiftResults | None = None
 
 
 @dataclass
@@ -56,14 +56,14 @@ class ShiftResults:
 
 
 def opt_ts_ci(
-    elements: Union[Sequence[int], Sequence[str]],
+    elements: Sequence[int] | Sequence[str],
     coordinates: Sequence[Array2D],
-    coordinates_guess: Optional[Array2D] = None,
-    e_shift: Optional[float] = None,
-    kw_topo: Optional[Mapping] = None,
-    kw_shift: Optional[Mapping] = None,
-    kw_opt: Optional[Mapping] = None,
-    kw_interpolation: Optional[Mapping] = None,
+    coordinates_guess: Array2D | None = None,
+    e_shift: float | None = None,
+    kw_topo: Mapping | None = None,
+    kw_shift: Mapping | None = None,
+    kw_opt: Mapping | None = None,
+    kw_interpolation: Mapping | None = None,
 ) -> Results:
     """Optimize transition state with xtb command line and PySCF using conical intersection.
     Args:
@@ -89,7 +89,7 @@ def opt_ts_ci(
 
     topologies = setup_gfnff_topologies(elements, coordinates, **kw_topo)
 
-    shift_results: Optional[tuple[float, float, float]]
+    shift_results: tuple[float, float, float] | None
     if e_shift is None:
         shift_results = calculate_e_shift_xtb(
             elements,
@@ -139,14 +139,14 @@ def opt_ts_ci(
 
 
 def opt_ts(
-    elements: Union[Sequence[int], Sequence[str]],
+    elements: Sequence[int] | Sequence[str],
     coordinates: Sequence[Array2D],
-    coordinates_guess: Optional[Array2D] = None,
-    e_shift: Optional[float] = None,
-    kw_topo: Optional[Mapping] = None,
-    kw_shift: Optional[Mapping] = None,
-    kw_opt: Optional[Mapping] = None,
-    kw_interpolation: Optional[Mapping] = None,
+    coordinates_guess: Array2D | None = None,
+    e_shift: float | None = None,
+    kw_topo: Mapping | None = None,
+    kw_shift: Mapping | None = None,
+    kw_opt: Mapping | None = None,
+    kw_interpolation: Mapping | None = None,
 ) -> Results:
     """Optimize transition state with xtb command line and PySCF.
     Args:
@@ -170,7 +170,7 @@ def opt_ts(
     if kw_interpolation is None:
         kw_interpolation = {}
     topologies = setup_gfnff_topologies(elements, coordinates, **kw_topo)
-    shift_results: Optional[tuple[float, float, float]]
+    shift_results: tuple[float, float, float] | None
     if e_shift is None:
         shift_results = calculate_e_shift_xtb(
             elements, coordinates, topologies, **kw_shift
@@ -214,13 +214,13 @@ def opt_ts(
 
 
 def setup_gfnff_topologies(  # noqa: C901
-    elements: Union[Sequence[int], Sequence[str]],
+    elements: Sequence[int] | Sequence[str],
     coordinates: Sequence[ArrayLike2D],
-    keywords: Optional[list[str]] = None,
-    xcontrol_keywords: Optional[MutableMapping[str, list[str]]] = None,
-    fragment_charges: Optional[Sequence[Optional[list[int]]]] = None,
-    adjacency_matrices: Optional[Sequence[Array2D]] = None,
-    paths: Optional[Sequence[Union[str, PathLike]]] = None,
+    keywords: list[str] | None = None,
+    xcontrol_keywords: MutableMapping[str, list[str]] | None = None,
+    fragment_charges: Sequence[list[int] | None] | None = None,
+    adjacency_matrices: Sequence[Array2D] | None = None,
+    paths: Sequence[str | PathLike] | None = None,
 ) -> list[bytes]:
     """Set up topologies for GFN-FF calculation.
     Args:
@@ -299,11 +299,11 @@ def setup_gfnff_topologies(  # noqa: C901
 
 
 def opt_frags_from_complex(
-    elements: Union[Sequence[int], Sequence[str]],
+    elements: Sequence[int] | Sequence[str],
     coordinates: ArrayLike2D,
-    keywords: Optional[list[str]] = None,
-    wbo_keywords: Optional[list[str]] = None,
-    xcontrol_keywords: Optional[MutableMapping[str, list[str]]] = None,
+    keywords: list[str] | None = None,
+    wbo_keywords: list[str] | None = None,
+    xcontrol_keywords: MutableMapping[str, list[str]] | None = None,
 ) -> list[tuple[Array1D, Array2D]]:
     """Optimize two fragments from complex.
     Args:
@@ -335,16 +335,16 @@ def opt_frags_from_complex(
 
 
 def opt_constrained_complex(  # noqa: C901
-    elements: Union[Sequence[int], Sequence[str]],
+    elements: Sequence[int] | Sequence[str],
     coordinates: ArrayLike2D,
-    distance_constraints: Optional[MutableMapping[tuple[int, int], float]] = None,
-    atom_constraints: Optional[Sequence[int]] = None,
-    fix_atoms: Optional[Sequence[int]] = None,
-    keywords: Optional[list[str]] = None,
-    xcontrol_keywords: Optional[MutableMapping[str, list[str]]] = None,
-    fragment_charges: Optional[list[int]] = None,
-    fc: Optional[float] = None,
-    path: Optional[Union[str, PathLike]] = None,
+    distance_constraints: MutableMapping[tuple[int, int], float] | None = None,
+    atom_constraints: Sequence[int] | None = None,
+    fix_atoms: Sequence[int] | None = None,
+    keywords: list[str] | None = None,
+    xcontrol_keywords: MutableMapping[str, list[str]] | None = None,
+    fragment_charges: list[int] | None = None,
+    fc: float | None = None,
+    path: str | PathLike | None = None,
 ) -> Array2D:
     """Optimize constrained complex."""
     rmsd_atoms = set(range(1, len(elements) + 1))
@@ -395,15 +395,15 @@ def opt_constrained_complex(  # noqa: C901
 
 
 def crest_constrained(  # noqa: C901
-    elements: Union[Sequence[int], Sequence[str]],
+    elements: Sequence[int] | Sequence[str],
     coordinates: ArrayLike2D,
-    distance_constraints: Optional[MutableMapping[tuple[int, int], float]] = None,
-    atom_constraints: Optional[Sequence[int]] = None,
-    fix_atoms: Optional[Sequence[int]] = None,
-    keywords: Optional[list[str]] = None,
-    xcontrol_keywords: Optional[MutableMapping[str, list[str]]] = None,
-    fc: Optional[float] = None,
-    path: Optional[Union[str, PathLike]] = None,
+    distance_constraints: MutableMapping[tuple[int, int], float] | None = None,
+    atom_constraints: Sequence[int] | None = None,
+    fix_atoms: Sequence[int] | None = None,
+    keywords: list[str] | None = None,
+    xcontrol_keywords: MutableMapping[str, list[str]] | None = None,
+    fc: float | None = None,
+    path: str | PathLike | None = None,
 ) -> ConformerEnsemble:
     """Run constrained CREST calculation."""
     rmsd_atoms = set(range(1, len(elements) + 1))
@@ -463,15 +463,15 @@ def crest_constrained(  # noqa: C901
 
 
 def calculate_e_shift_xtb(
-    elements: Union[Sequence[int], Sequence[str]],
+    elements: Sequence[int] | Sequence[str],
     coordinates: Sequence[ArrayLike2D],
     topologies: Sequence[bytes],
-    e_diff_ref: Optional[float] = None,
-    keywords_ff: Optional[list[str]] = None,
-    keywords_sp: Optional[list[str]] = None,
-    xcontrol_keywords_ff: Optional[MutableMapping[str, list[str]]] = None,
-    xcontrol_keywords_sp: Optional[MutableMapping[str, list[str]]] = None,
-    paths: Optional[Sequence[Union[str, PathLike]]] = None,
+    e_diff_ref: float | None = None,
+    keywords_ff: list[str] | None = None,
+    keywords_sp: list[str] | None = None,
+    xcontrol_keywords_ff: MutableMapping[str, list[str]] | None = None,
+    xcontrol_keywords_sp: MutableMapping[str, list[str]] | None = None,
+    paths: Sequence[str | PathLike] | None = None,
 ) -> tuple[float, float, float]:
     """Calculate energy shift between reference (default: GFN2-xTB) and GFN-FF reaction energies.
     Args:

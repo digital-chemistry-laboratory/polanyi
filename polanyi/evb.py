@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Iterable, Mapping, Optional, overload, Tuple, Union
+from typing import Iterable, Mapping, overload, Tuple
 
 import numpy as np
 
@@ -16,7 +16,7 @@ from polanyi.typing import Array2D, ArrayLike1D, ArrayLike2D
 def evb_eigenvalues(
     energies: ArrayLike1D,
     *,
-    coupling: Union[float, Mapping[Tuple[int, int], float]] = 0.0,
+    coupling: float | Mapping[Tuple[int, int], float] = 0.0,
 ) -> Tuple[list[float], list[int]]:
     ...
 
@@ -26,7 +26,7 @@ def evb_eigenvalues(
     energies: ArrayLike1D,
     *,
     gradients: Iterable[ArrayLike2D],
-    coupling: Union[float, Mapping[Tuple[int, int], float]] = 0.0,
+    coupling: float | Mapping[Tuple[int, int], float] = 0.0,
 ) -> Tuple[list[float], list[Array2D], list[int]]:
     ...
 
@@ -36,7 +36,7 @@ def evb_eigenvalues(
     energies: ArrayLike1D,
     *,
     hessians: Iterable[ArrayLike2D],
-    coupling: Union[float, Mapping[Tuple[int, int], float]] = 0.0,
+    coupling: float | Mapping[Tuple[int, int], float] = 0.0,
 ) -> Tuple[list[float], list[Array2D], list[int]]:
     ...
 
@@ -47,7 +47,7 @@ def evb_eigenvalues(
     *,
     gradients: Iterable[ArrayLike2D],
     hessians: Iterable[ArrayLike2D],
-    coupling: Union[float, Mapping[Tuple[int, int], float]] = 0.0,
+    coupling: float | Mapping[Tuple[int, int], float] = 0.0,
 ) -> Tuple[list[float], list[Array2D], list[Array2D], list[int]]:
     ...
 
@@ -57,14 +57,14 @@ def evb_eigenvalues(
 def evb_eigenvalues(  # noqa: C901
     energies: ArrayLike1D,
     *,
-    gradients: Optional[Iterable[ArrayLike2D]] = None,
-    hessians: Optional[Iterable[ArrayLike2D]] = None,
-    coupling: Union[float, Mapping[Tuple[int, int], float]] = 0.0,
-) -> Union[
-    Tuple[list[float], list[int]],
-    Tuple[list[float], list[Array2D], list[int]],
-    Tuple[list[float], list[Array2D], list[Array2D], list[int]],
-]:
+    gradients: Iterable[ArrayLike2D] | None = None,
+    hessians: Iterable[ArrayLike2D] | None = None,
+    coupling: float | Mapping[Tuple[int, int], float] = 0.0,
+) -> (
+    Tuple[list[float], list[int]]
+    | Tuple[list[float], list[Array2D], list[int]]
+    | Tuple[list[float], list[Array2D], list[Array2D], list[int]]
+):
     """Returns EVB eigenvalues for energies and gradients.
 
     Args:

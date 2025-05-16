@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Collection, Optional, Union
+from typing import Collection
 
 from geodesic_interpolate import Geodesic, redistribute
 import numpy as np
@@ -12,10 +12,10 @@ from polanyi.utils import convert_elements
 
 
 def interpolate_geodesic(
-    elements: Union[Collection[int], Collection[str]],
+    elements: Collection[int] | Collection[str],
     coordinates: ArrayLike3D,
     n_images: int = 3,
-    sweep: Optional[bool] = None,
+    sweep: bool | None = None,
     tol: float = 0.002,
     maxiter: int = 15,
     microiter: int = 20,

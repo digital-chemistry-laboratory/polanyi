@@ -6,7 +6,7 @@ from collections.abc import Iterable, Sequence
 import functools
 from os import PathLike
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any
 
 from berny import Berny, Geometry
 from berny.berny import OptPoint
@@ -27,7 +27,7 @@ def e_g_function_python(
     calculators: Iterable[XTBCalculator],
     e_shift: float = 0,
     coupling: float = 0,
-    path: Optional[Union[str, PathLike]] = None,
+    path: str | PathLike | None = None,
 ) -> tuple[float, Array2D]:
     """Find TS with GFN-FF."""
     if path is None:
@@ -68,15 +68,15 @@ def e_g_function_python(
 
 
 def ts_from_gfnff_python(
-    elements: Union[Iterable[int], Iterable[str]],
+    elements: Iterable[int] | Iterable[str],
     coordinates: ArrayLike2D,
     calculators: Iterable[XTBCalculator],
     e_shift: float = 0,
     coupling: float = 0,
     maxsteps: int = 100,
-    params: Optional[dict[str, Any]] = None,
-    active_bonds: Optional[Sequence[tuple[int]]] = None,
-    path: Optional[Union[str, PathLike]] = None,
+    params: dict[str, Any] | None = None,
+    active_bonds: Sequence[tuple[int]] | None = None,
+    path: str | PathLike | None = None,
 ) -> Array2D:
     """Optimize TS with GFNFF."""
     if params is None:

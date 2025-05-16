@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from typing import Optional
 
 import numpy as np
 from scipy.sparse import csr_matrix
@@ -29,8 +28,8 @@ def connectivity_from_bo(bo_matrix: Array2D, thres: float = 0.3) -> Array2D:
 
 def combine_frags_distant(
     fragments: Iterable[tuple[Array1D, Array2D]],
-    distances: Optional[Iterable[float]] = None,
-    indices: Optional[Iterable[Array1D]] = None,
+    distances: Iterable[float] | None = None,
+    indices: Iterable[Array1D] | None = None,
 ) -> tuple[Array1D, Array2D]:
     """Combine fragments at distance to one structure."""
     fragments = list(fragments)

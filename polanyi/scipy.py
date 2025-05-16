@@ -7,7 +7,6 @@ import functools
 from os import PathLike
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Optional, Union
 
 from loguru import logger
 import numpy as np
@@ -23,14 +22,14 @@ from polanyi.xtb import parse_energy, parse_engrad, parse_hessian, run_xtb
 
 def e_g_function(  # noqa: C901
     coordinates_1D: Array1D,
-    elements: Union[Iterable[str], Iterable[int]],
+    elements: Iterable[str] | Iterable[int],
     topologies: Iterable[bytes],
-    keywords: Optional[list[str]] = None,
-    xcontrol_keywords: Optional[MutableMapping[str, list[str]]] = None,
+    keywords: list[str] | None = None,
+    xcontrol_keywords: MutableMapping[str, list[str]] | None = None,
     e_shift: float = 0,
     coupling: float = 0,
-    path: Optional[Union[str, PathLike]] = None,
-) -> Union[float, Array1D, Array2D]:
+    path: str | PathLike | None = None,
+) -> float | Array1D | Array2D:
     """Find TS with GFN-FF."""
     if keywords is None:
         keywords = []
@@ -127,16 +126,16 @@ def e_g_function(  # noqa: C901
 
 
 def ts_from_gfnff(
-    elements: Union[Iterable[int], Iterable[str]],
+    elements: Iterable[int] | Iterable[str],
     coordinates: ArrayLike2D,
     topologies: Iterable[bytes],
-    keywords: Optional[list[str]] = None,
-    xcontrol_keywords: Optional[MutableMapping[str, list[str]]] = None,
+    keywords: list[str] | None = None,
+    xcontrol_keywords: MutableMapping[str, list[str]] | None = None,
     e_shift: float = 0,
     coupling: float = 0,
     maxsteps: int = 100,
     tol: float = 1e-6,
-    path: Optional[Union[str, PathLike]] = None,
+    path: str | PathLike | None = None,
 ) -> Array2D:
     """Optimize TS with GFNFF."""
     coordinates = np.asarray(coordinates)

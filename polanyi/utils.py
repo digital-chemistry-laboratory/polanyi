@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from importlib import import_module
 from itertools import groupby, zip_longest
 from numbers import Integral
-from typing import Any, cast, Literal, Optional, overload, Union
+from typing import Any, cast, Literal, overload
 import subprocess
 import re
 from packaging.version import Version
@@ -60,8 +60,8 @@ class Import:
     """Class for handling optional dependency imports."""
 
     module: str
-    item: Optional[str] = None
-    alias: Optional[str] = None
+    item: str | None = None
+    alias: str | None = None
 
 
 def requires_dependency(  # noqa: C901
@@ -136,7 +136,7 @@ def all_equal(iterable: Iterable) -> bool:
 
 
 def validate_atom_order(
-    elements: Iterable[Union[Iterable[int], Iterable[str]]],
+    elements: Iterable[Iterable[int] | Iterable[str]],
 ) -> bool:
     """Check whether atom types and length of elements is consistent.
 
@@ -156,14 +156,14 @@ def validate_atom_order(
 
 @overload
 def convert_elements(
-    elements: Union[Iterable[int], Iterable[str]], output: Literal["numbers"]
+    elements: Iterable[int] | Iterable[str], output: Literal["numbers"]
 ) -> list[int]:
     ...
 
 
 @overload
 def convert_elements(
-    elements: Union[Iterable[int], Iterable[str]], output: Literal["symbols"]
+    elements: Iterable[int] | Iterable[str], output: Literal["symbols"]
 ) -> list[str]:
     ...
 
@@ -171,8 +171,8 @@ def convert_elements(
 
 
 def convert_elements(
-    elements: Union[Iterable[int], Iterable[str]], output: str = "numbers"
-) -> Union[list[int], list[str]]:
+    elements: Iterable[int] | Iterable[str], output: str = "numbers"
+) -> list[int] | list[str]:
     """Converts elements to atomic symbols or numbers.
 
     Args:

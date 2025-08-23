@@ -289,7 +289,7 @@ def ts_from_gfnff_ci(
     callback: Callable[[dict[str, Any]], None] | None = None,
     conv_params: dict[str, Any] | None = None,
     path: str | Path | None = None,
-) -> Array2D:
+) -> tuple[Array2D, float]:
     """Optimize TS from conical intersection with GFNFF.
     Args:
         elements: TS elements as symbols or numbers
@@ -305,7 +305,7 @@ def ts_from_gfnff_ci(
         conv_params: convergence parameters for PySCF optimization
         path: path where to run calculations
     Returns:
-        optimized TS coordinates [Å]
+        optimized TS coordinates [Å] and energy [Eh]
     """
     if conv_params is None:
         conv_params = {}
@@ -350,18 +350,26 @@ def ts_from_gfnff_ci(
         path=path_2,
     )
 
+    final_energy: float | None = None
+
+    def store_e_cb(info: dict):
+        nonlocal final_energy
+        final_energy = info["energy"]
+        if callback is not None:
+            callback(info)
+
     _, opt_mole = optimize_ci(
         [as_pyscf_method(mole, e_g_partial_1), as_pyscf_method(mole, e_g_partial_2)],
         maxsteps=maxsteps,
         alpha=alpha,
         sigma=sigma,
-        callback=callback,
+        callback=store_e_cb,
         **conv_params,
     )
 
     opt_coordinates: Array2D = np.ascontiguousarray(opt_mole.atom_coords(unit="ANG"))
 
-    return opt_coordinates
+    return opt_coordinates, final_energy
 
 
 def get_pyscf_mole(

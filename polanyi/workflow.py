@@ -38,8 +38,9 @@ from polanyi.utils import is_min_xtb_version
 class Results:
     """Results of TS optimization."""
 
-    opt_results: OptResults
     coordinates_opt: Array2D
+    energy_opt: float
+    opt_results: OptResults | None = None
     shift_results: ShiftResults | None = None
 
 
@@ -75,7 +76,7 @@ def opt_ts_ci(
         kw_opt: parameters for optimization
         kw_interpolation: parameters for the TS interpolation
     Returns:
-        coordinates_opt: coordinates of the optimised transition state [Å]
+        results: coordinates [Å] and energies [Eh] of the TS optimization
     """
     if kw_opt is None:
         kw_opt = {}
@@ -130,11 +131,17 @@ def opt_ts_ci(
 
         kw_opt["callback"] = get_opt_steps_from_ci
 
-    coordinates_opt = ts_from_gfnff_ci(
+    coordinates_opt, energy_opt = ts_from_gfnff_ci(
         elements, coordinates_guess, topologies, e_shift=e_shift, **kw_opt
     )
 
-    return coordinates_opt
+    results = Results(
+        coordinates_opt=coordinates_opt,
+        energy_opt=energy_opt,
+        shift_results=shift_results,
+    )
+
+    return results
 
 
 def opt_ts(
@@ -158,7 +165,7 @@ def opt_ts(
         kw_opt: parameters for optimization
         kw_interpolation: parameters for the TS interpolation
     Returns:
-        results: Results of the TS optimization
+        results: coordinates [Å] and energies [Eh] of the TS optimization
     """
     if kw_opt is None:
         kw_opt = {}
@@ -204,8 +211,9 @@ def opt_ts(
                 f.write(xyz_step)
 
     results = Results(
-        opt_results=opt_results,
         coordinates_opt=opt_results.coordinates[-1],
+        energy_opt=opt_results.energies_adiabatic[-1][1],
+        opt_results=opt_results,
         shift_results=shift_results,
     )
 

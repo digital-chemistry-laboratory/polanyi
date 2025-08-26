@@ -337,7 +337,7 @@ def opt_frags_from_complex(
     for indices in frag_indices:
         frag_elements = elements[indices]
         frag_coordinates = coordinates[indices]
-        opt_coordinates = opt_xtb(
+        opt_coordinates, _ = opt_xtb(
             frag_elements,
             frag_coordinates,
             keywords=keywords,
@@ -359,8 +359,22 @@ def opt_constrained_complex(  # noqa: C901
     fragment_charges: list[int] | None = None,
     fc: float | None = None,
     path: str | Path | None = None,
-) -> Array2D:
-    """Optimize constrained complex."""
+) -> Results:
+    """Optimise constrained complex with xtb
+    Args:
+        elements: elements as symbols or numbers
+        coordinates: coordinates [Å]
+        distance_constraints: distances to constrain
+        atom_constraints: atoms to constrain
+        fix_atoms: atoms to fix
+        keywords: xtb command line keywords
+        xcontrol_keywords: input instructions to write in the xtb xcontrol file
+        fragment_charges: charge of each non-covalently bound (NCI) fragment
+        fc: force constant for constraints
+        path: path to run the xtb optimisation
+    Returns:
+        results: coordinates [Å] and energies [Eh] of the TS optimization
+    """
     rmsd_atoms = set(range(1, len(elements) + 1))
     if distance_constraints is not None:
         if xcontrol_keywords is None:
@@ -396,7 +410,7 @@ def opt_constrained_complex(  # noqa: C901
             xcontrol_fix_atoms.append(fix_string)
         rmsd_atoms.difference_update(fix_atoms)
 
-    opt_coordinates = opt_xtb(
+    opt_coordinates, opt_energy = opt_xtb(
         elements,
         coordinates,
         keywords=keywords,
@@ -405,7 +419,12 @@ def opt_constrained_complex(  # noqa: C901
         path=path,
     )
 
-    return opt_coordinates
+    results = Results(
+        coordinates_opt=opt_coordinates,
+        energy_opt=opt_energy,
+    )
+
+    return results
 
 
 def crest_constrained(  # noqa: C901

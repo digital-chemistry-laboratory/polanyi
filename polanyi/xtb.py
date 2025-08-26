@@ -177,7 +177,7 @@ def opt_xtb(
     xcontrol_keywords: MutableMapping[str, list[str]] | None = None,
     fragment_charges: list[int] | None = None,
     path: str | Path | None = None,
-) -> Array2D:
+) -> tuple[Array2D, float]:
     """Calculate xtb-optimized geometry.
     Args:
         elements: elements as symbols or numbers
@@ -185,8 +185,9 @@ def opt_xtb(
         keywords: xtb command line keywords
         xcontrol_keywords: input instructions to write in the xtb xcontrol file
         fragment_charges: charge of each non-covalently bound (NCI) fragment
+        path to run the xtb optimisation
     Returns:
-        optimized coordinates [Å]
+        optimized coordinates [Å] and energy [Eh]
     """
     if keywords is None:
         keywords = []
@@ -208,10 +209,11 @@ def opt_xtb(
         fragment_charges=fragment_charges,
     )
     _, opt_coordinates = read_xyz(xtb_path / "xtbopt.xyz")
+    opt_energy = parse_energy(xtb_path / "xtb.out")
     if path is None:
         temp_dir.cleanup()
 
-    return opt_coordinates
+    return opt_coordinates, opt_energy
 
 
 def opt_crest(
@@ -352,7 +354,7 @@ def ts_from_gfnff_xtb(
 
     keywords = set([keyword.strip().lower() for keyword in keywords])
     keywords.add("--tm")
-    opt_coordinates = opt_xtb(
+    opt_coordinates, _ = opt_xtb(
         elements,
         coordinates,
         keywords=keywords,

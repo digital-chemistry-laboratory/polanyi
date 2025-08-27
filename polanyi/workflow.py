@@ -212,7 +212,7 @@ def opt_ts(
 
     results = Results(
         coordinates_opt=opt_results.coordinates[-1],
-        energy_opt=opt_results.energies_adiabatic[-1][1],
+        energy_opt=opt_results.energies_diabatic[-1][0],
         opt_results=opt_results,
         shift_results=shift_results,
     )

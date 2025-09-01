@@ -16,10 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - All xtb calculations now run from command line instead of using the deprecated `xtb-python` Python API
-- `setup_gfnff_topologies` function renamed in `setup_gfnff_topologies`
+- `setup_gfnff_calculators` function renamed in `setup_gfnff_topologies`
+- All functions optimising geometry with xtb now also return the final energy along with the optimised coordinates
 
 
 ### Removed
+- All functions which previously used the deprecated `xtb-python` Python API
 
 ### Fixed
 - Update the implementation of conical intersection optimisation to the version 1.0.1 of the geomeTRIC library

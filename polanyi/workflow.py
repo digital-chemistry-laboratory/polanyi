@@ -19,6 +19,7 @@ from polanyi.geometry import two_frags_from_bo
 from polanyi.interpolation import interpolate_geodesic
 from polanyi.pyscf import (
     OptResults,
+    rxn_path_from_gfnff,
     ts_from_gfnff,
     ts_from_gfnff_ci,
 )
@@ -65,7 +66,7 @@ def opt_ts_ci(
     kw_opt: Mapping | None = None,
     kw_interpolation: Mapping | None = None,
 ) -> Results:
-    """Optimize transition state with xtb command line and PySCF using conical intersection.
+    """Optimize transition state with xtb and PySCF using conical intersection.
     Args:
         elements: elements as symbols or numbers
         coordinates: sequence containing the coordinates of each ground states [Å]
@@ -154,7 +155,7 @@ def opt_ts(
     kw_opt: Mapping | None = None,
     kw_interpolation: Mapping | None = None,
 ) -> Results:
-    """Optimize transition state with xtb command line and PySCF.
+    """Optimize transition state with xtb and PySCF.
     Args:
         elements: TS elements as symbols or numbers
         coordinates: sequence containing the coordinates of each ground state [Å]
@@ -581,3 +582,65 @@ def calculate_e_shift_xtb(
     e_shift = e_diff_ref - e_diff_ff
 
     return e_shift, e_diff_ref, e_diff_ff
+
+
+def interpolate_rxn_path(
+    elements: Sequence[int] | Sequence[str],
+    coordinates: Sequence[Array2D],
+    n_images: int = 10,
+    e_shift: float | None = None,
+    kw_topo: Mapping | None = None,
+    kw_shift: Mapping | None = None,
+    kw_opt: Mapping | None = None,
+    kw_interpolation: Mapping | None = None,
+) -> list[Array2D]:
+    """Interpolate reaction path between geometries based on EVB.
+    Args:
+        elements: TS elements as symbols or numbers
+        coordinates: sequence containing the coordinates of each ground state [Å]
+        n_images: number of structures to generate on the reaction path
+        e_shift: energy shift between reference (GFN2-xTB by default) and GFN-FF reaction energies
+        kw_topo: parameters for topologies calculation
+        kw_shift: parameters for energy shift calculation
+        kw_opt: parameters for optimization
+        kw_interpolation: parameters for the geodesicinterpolation
+    Returns:
+        coordinates [Å] along the reaction path
+    """
+    if kw_opt is None:
+        kw_opt = {}
+    if kw_shift is None:
+        kw_shift = {}
+    if kw_topo is None:
+        kw_topo = {}
+    if kw_interpolation is None:
+        kw_interpolation = {}
+    topologies = setup_gfnff_topologies(elements, coordinates, **kw_topo)
+    shift_results: tuple[float, float, float] | None
+    if e_shift is None:
+        shift_results = calculate_e_shift_xtb(
+            elements, coordinates, topologies, **kw_shift
+        )
+        e_shift = shift_results[0]
+    else:
+        shift_results = None
+
+    if kw_interpolation.get("n_images") is not None:
+        if kw_interpolation.get("n_images") != n_images:
+            raise ValueError(
+                "Given number of images must be the same for this function and the geodesic interpolation."
+            )
+    else:
+        kw_interpolation["n_images"] = n_images
+    guess_rxn_path = interpolate_geodesic(elements, coordinates, **kw_interpolation)
+
+    results_path = rxn_path_from_gfnff(
+        elements,
+        guess_rxn_path,
+        topologies,
+        e_shift=e_shift,
+        **kw_opt,
+    )
+    evb_rxn_path = [results_path[i].coordinates[-1] for i in range(len(results_path))]
+
+    return evb_rxn_path

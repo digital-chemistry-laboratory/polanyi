@@ -73,13 +73,13 @@ def e_g_function(
     coupling: float = 0,
     path: str | Path | None = None,
 ) -> tuple[float, Array2D]:
-    """Find TS with GFN-FF using xtb command line.
+    """Calculate energy and gradient from GFN-FF and then solving eigenvalues of EVB.
     Args:
         mol: PySCF molecule
         topologies: sequence of GFN-FF topologies for each ground state
         results: OptResults object to store optimization results
         keywords: xtb command line keywords
-        xcontrol_keywords: input instructions to write in the xTB xcontrol file
+        xcontrol_keywords: input instructions to write in the xtb xcontrol file
         e_shift: energy shift between GFN2-xTB and GFN-FF reaction energy
         coupling: coupling constant between the ground states force fields
         path: path where to run calculations
@@ -87,10 +87,14 @@ def e_g_function(
         tuple of adiabatic energy and gradient
     """
     topologies = list(topologies)
+    elements = mol.atom_charges()
+    coordinates = mol.atom_coords(unit="ANG")
+
     if keywords is None:
         keywords = []
     keywords = set([keyword.strip().lower() for keyword in keywords])
     keywords.add("--grad")
+
     if path is None:
         path = Path.cwd()
         temp_dirs = [
@@ -102,8 +106,6 @@ def e_g_function(
         path = Path(path)
         xtb_paths = [path / str(i) for i in range(len(topologies))]
         cleanup = False
-    elements = mol.atom_charges()
-    coordinates = mol.atom_coords(unit="ANG")
 
     energies = []
     gradients = []
@@ -154,17 +156,20 @@ def e_g_function_ci(
     e_shift: float = 0,
     path: str | Path | None = None,
 ) -> tuple[float, Array2D]:
-    """Find TS with GFN-FF for conical intersection using xtb command line.
+    """Get energy and gradient from GFN-FF to use in conical intersection optimisation.
     Args:
         mol: PySCF molecule
         topology: GFN-FF topology for a ground state
         keywords: xtb command line keywords
-        xcontrol_keywords: input instructions to write in the xTB xcontrol file
+        xcontrol_keywords: input instructions to write in the xtb xcontrol file
         e_shift: energy shift between GFN2-xTB and GFN-FF reaction energy
         path: path where to run calculations
     Returns:
         tuple of energy and gradient
     """
+    elements = mol.atom_charges()
+    coordinates = mol.atom_coords(unit="ANG")
+
     if keywords is None:
         keywords = []
     keywords = set([keyword.strip().lower() for keyword in keywords])
@@ -178,9 +183,6 @@ def e_g_function_ci(
     else:
         xtb_path = Path(path)
         cleanup = False
-
-    elements = mol.atom_charges()
-    coordinates = mol.atom_coords(unit="ANG")
 
     xtb_path.mkdir(exist_ok=True)
     if not (xtb_path / "gfnff_topo").exists():
@@ -203,6 +205,91 @@ def e_g_function_ci(
     return energy, gradient
 
 
+def e_g_function_path(
+    mol: "Mole",
+    topologies: Sequence[bytes],
+    results: OptResults,
+    keywords: list[str] | None = None,
+    xcontrol_keywords: MutableMapping[str, list[str]] | None = None,
+    e_shift: float = 0,
+    lam: float = 0,
+    path: str | Path | None = None,
+) -> tuple[float, Array2D]:
+    """Calculate energy and gradient from GFN-FF and then weighted average of ground state force fields.
+    Args:
+        mol: PySCF molecule
+        topologies: sequence of GFN-FF topologies for each ground state
+        results: OptResults object to store optimization results
+        keywords: xtb command line keywords
+        xcontrol_keywords: input instructions to write in the xtb xcontrol file
+        lam: lambda incrementing variable from reactant (0) to product (1)
+        e_shift: energy shift between GFN2-xTB and GFN-FF reaction energy
+        path: path where to run calculations
+    Returns:
+        tuple of weighted energy and gradient
+    """
+    topologies = list(topologies)
+    if len(topologies) != 2:
+        raise ValueError("Needs two ground state topologies to use this function.")
+    elements = mol.atom_charges()
+    coordinates = mol.atom_coords(unit="ANG")
+
+    if keywords is None:
+        keywords = []
+    keywords = set([keyword.strip().lower() for keyword in keywords])
+    keywords.add("--grad")
+
+    if path is None:
+        path = Path.cwd()
+        temp_dirs = [
+            TemporaryDirectory(dir=config.TMP_DIR) for i in range(len(topologies))
+        ]
+        xtb_paths = [path / temp_dir.name for temp_dir in temp_dirs]
+        cleanup = True
+    else:
+        path = Path(path)
+        xtb_paths = [path / str(i) for i in range(len(topologies))]
+        cleanup = False
+
+    energies = []
+    gradients = []
+    for topology, xtb_path in zip(topologies, xtb_paths):
+        xtb_path.mkdir(exist_ok=True)
+        if not (xtb_path / "gfnff_topo").exists():
+            with open(xtb_path / "gfnff_topo", "wb") as f:
+                f.write(topology)
+        run_xtb(
+            elements,
+            coordinates,
+            path=xtb_path,
+            keywords=keywords,
+            xcontrol_keywords=xcontrol_keywords,
+        )
+        energy, gradient = parse_engrad(xtb_path / "xtb.engrad")
+        energies.append(energy)
+        gradients.append(gradient)
+
+    energies[-1] += e_shift
+
+    # Equation for EVB model potential
+    energy_weighted = (1 - lam) * energies[0] + lam * energies[-1]
+    gradient_weighted = (1 - lam) * gradients[0] + lam * gradients[-1]
+
+    # Clean up temporary directory
+    if cleanup is True:
+        for temp_dir in temp_dirs:
+            temp_dir.cleanup()
+
+    # Store results
+    results.coordinates.append(coordinates)
+    results.energies_diabatic.append(energies)
+    results.gradients_diabatic.append(gradients)
+    results.energies_adiabatic.append(energy_weighted)
+    results.gradients_adiabatic.append(gradient_weighted)
+
+    return energy_weighted, gradient_weighted
+
+
 def ts_from_gfnff(
     elements: Sequence[int] | Sequence[str],
     coordinates: ArrayLike2D,
@@ -217,13 +304,13 @@ def ts_from_gfnff(
     solver: str = "geometric",
     path: str | Path | None = None,
 ) -> OptResults:
-    """Optimize TS with GFNFF.
+    """Optimize TS with GFN-FF and EVB.
     Args:
         elements: TS elements as symbols or numbers
-        coordinates: Sequence containing the coordinates of each ground states [Å]
+        coordinates: coordinates of guess TS structure [Å]
         topologies: sequence of GFN-FF topologies for each ground state
         keywords: xtb command line keywords
-        xcontrol_keywords: input instructions to write in the xTB xcontrol file
+        xcontrol_keywords: input instructions to write in the xtb xcontrol file
         e_shift: energy shift between GFN2-xTB and GFN-FF reaction energy
         coupling: coupling constant between the ground states force fields
         maxsteps: maximum number of optimization steps
@@ -290,13 +377,13 @@ def ts_from_gfnff_ci(
     conv_params: dict[str, Any] | None = None,
     path: str | Path | None = None,
 ) -> tuple[Array2D, float]:
-    """Optimize TS from conical intersection with GFNFF.
+    """Optimize TS with GFN-FF and conical intersection.
     Args:
         elements: TS elements as symbols or numbers
-        coordinates: sequence containing the coordinates of each ground states [Å]
+        coordinates: coordinates of guess TS structure [Å]
         topologies: sequence of GFN-FF topology for each ground state
         keywords: xtb command line keywords
-        xcontrol_keywords: input instructions to write in the xTB xcontrol file
+        xcontrol_keywords: input instructions to write in the xtb xcontrol file
         e_shift: energy shift between GFN2-xTB and GFN-FF reaction energy
         maxsteps: maximum number of optimization steps
         alpha: width parameter for penalty function in conical interesection optimization
@@ -370,6 +457,82 @@ def ts_from_gfnff_ci(
     opt_coordinates: Array2D = np.ascontiguousarray(opt_mole.atom_coords(unit="ANG"))
 
     return opt_coordinates, final_energy
+
+
+def rxn_path_from_gfnff(
+    elements: Sequence[int] | Sequence[str],
+    coordinates: Sequence[Array2D],
+    topologies: Sequence[bytes],
+    keywords: list[str] | None = None,
+    xcontrol_keywords: MutableMapping[str, list[str]] | None = None,
+    e_shift: float = 0,
+    maxsteps: int = 100,
+    callback: Callable[[dict[str, Any]], None] | None = None,
+    conv_params: dict[str, Any] | None = None,
+    solver: str = "geometric",
+    path: str | Path | None = None,
+) -> list[OptResults]:
+    """Optimize structures along reaction path with GFN-FF and EVB.
+    Args:
+        elements: TS elements as symbols or numbers
+        coordinates: guess coordinates of each point on the reaction path [Å]
+        topologies: sequence of GFN-FF topologies for each ground state
+        keywords: xtb command line keywords
+        xcontrol_keywords: input instructions to write in the xtb xcontrol file
+        e_shift: energy shift between GFN2-xTB and GFN-FF reaction energy
+        maxsteps: maximum number of optimization steps
+        callback: function to call after each optimization step
+        conv_params: convergence parameters for PySCF optimization
+        solver: PySCF optimization solver (geometric or pyberny)
+        path: path where to run calculations
+    Returns:
+        results for each structure optimization
+    """
+    if conv_params is None:
+        conv_params = {}
+    if path:
+        path = Path(path)
+        if path.exists():
+            shutil.rmtree(path)
+        path.mkdir(parents=True)
+    if keywords is None:
+        keywords = []
+    keywords = set([keyword.strip().lower() for keyword in keywords])
+    keywords.add("--gfnff")
+
+    results_path = []
+    for coords, lam in zip(coordinates, np.linspace(0, 1, len(coordinates))):
+        results = OptResults()
+        mole = get_pyscf_mole(elements, coords)
+        e_g_partial = functools.partial(
+            e_g_function_path,
+            topologies=topologies,
+            results=results,
+            keywords=keywords,
+            xcontrol_keywords=xcontrol_keywords,
+            e_shift=e_shift,
+            lam=lam,
+            path=path,
+        )
+
+        if solver == "pyberny":
+            pyscf_solver = berny_solver
+        elif solver == "geometric":
+            pyscf_solver = geometric_solver
+        with redirect_stdout(StringIO()) as stdout, redirect_stderr(
+            StringIO()
+        ) as stderr:
+            pyscf_solver.optimize(
+                as_pyscf_method(mole, e_g_partial),
+                maxsteps=maxsteps,
+                callback=callback,
+                **conv_params,
+            )
+        results.stdout = stdout.getvalue()
+        results.stderr = stderr.getvalue()
+        results_path.append(results)
+
+    return results_path
 
 
 def get_pyscf_mole(

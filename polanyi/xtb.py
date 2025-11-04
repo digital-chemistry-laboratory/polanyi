@@ -36,7 +36,7 @@ def run_xtb(  # noqa: C901
         path = Path(path)
     else:
         path = Path.cwd()
-    path.mkdir(exist_ok=True)
+    path.mkdir(exist_ok=True, parents=True)
 
     write_xyz(path / "xtb.xyz", elements, coordinates)
     command = "xtb xtb.xyz " + " ".join(f"{keyword}" for keyword in keywords)

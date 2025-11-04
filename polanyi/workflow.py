@@ -6,6 +6,8 @@ from collections.abc import MutableMapping, Sequence
 from dataclasses import dataclass
 from inspect import signature
 from pathlib import Path
+from scipy.optimize import minimize
+import shutil
 from tempfile import TemporaryDirectory
 import textwrap
 from typing import Mapping
@@ -15,6 +17,7 @@ import numpy as np
 import os
 
 from polanyi import config
+from polanyi.evb import evb_eigenvalues
 from polanyi.geometry import two_frags_from_bo
 from polanyi.interpolation import interpolate_geodesic
 from polanyi.pyscf import (
@@ -145,15 +148,17 @@ def opt_ts_ci(
     return results
 
 
-def opt_ts(
+def opt_ts(  # noqa: C901
     elements: Sequence[int] | Sequence[str],
     coordinates: Sequence[Array2D],
     coordinates_guess: Array2D | None = None,
     e_shift: float | None = None,
+    fit_coupling: bool = False,
     kw_topo: Mapping | None = None,
     kw_shift: Mapping | None = None,
-    kw_opt: Mapping | None = None,
     kw_interpolation: Mapping | None = None,
+    kw_coupling: Mapping | None = None,
+    kw_opt: Mapping | None = None,
 ) -> Results:
     """Optimize transition state with xtb and PySCF.
     Args:
@@ -161,10 +166,12 @@ def opt_ts(
         coordinates: sequence containing the coordinates of each ground state [Å]
         coordinates_guess: initial guess for the transition state [Å]
         e_shift: energy shift between reference (GFN2-xTB by default) and GFN-FF reaction energies
+        fit_coupling: whether to optimise EVB coupling constant
         kw_topo: parameters for topologies calculation
         kw_shift: parameters for energy shift calculation
-        kw_opt: parameters for optimization
         kw_interpolation: parameters for the TS interpolation
+        kw_coupling: parameters for coupling constant fitting
+        kw_opt: parameters for optimization
     Returns:
         results: coordinates [Å] and energies [Eh] of the TS optimization
     """
@@ -176,6 +183,8 @@ def opt_ts(
         kw_topo = {}
     if kw_interpolation is None:
         kw_interpolation = {}
+    if kw_coupling is None:
+        kw_coupling = {}
     topologies = setup_gfnff_topologies(elements, coordinates, **kw_topo)
     shift_results: tuple[float, float, float] | None
     if e_shift is None:
@@ -185,12 +194,33 @@ def opt_ts(
         e_shift = shift_results[0]
     else:
         shift_results = None
-    if coordinates_guess is None:
+    if coordinates_guess is None or fit_coupling:
         n_images = kw_interpolation.get("n_images")
         if n_images is None:
-            n_images = signature(interpolate_geodesic).parameters["n_images"].default
+            if fit_coupling:
+                n_images = signature(fit_coupling_const).parameters["n_images"].default
+            else:
+                n_images = (
+                    signature(interpolate_geodesic).parameters["n_images"].default
+                )
+            kw_interpolation["n_images"] = n_images
         rxn_path = interpolate_geodesic(elements, coordinates, **kw_interpolation)
         coordinates_guess = rxn_path[n_images // 2]
+
+    if fit_coupling:
+        if kw_shift.get("e_diff_ref") is None:
+            e_shift_fit = e_shift
+        else:
+            e_shift_fit = None
+        coupling = fit_coupling_const(
+            elements,
+            coordinates,
+            topologies,
+            e_shift=e_shift_fit,
+            rxn_path=rxn_path,
+            **kw_coupling,
+        )
+        kw_opt["coupling"] = coupling
 
     opt_results = ts_from_gfnff(
         elements, coordinates_guess, topologies, e_shift=e_shift, **kw_opt
@@ -584,6 +614,119 @@ def calculate_e_shift_xtb(  # noqa: C901
     e_shift = e_diff_ref - e_diff_ff
 
     return e_shift, e_diff_ref, e_diff_ff
+
+
+def fit_coupling_const(  # noqa: C901
+    elements: Sequence[int] | Sequence[str],
+    coordinates: Sequence[Array2D],
+    topologies: Sequence[bytes],
+    e_shift: float | None = None,
+    rxn_path: list[Array2D] | None = None,
+    n_images: int = 9,
+    keywords_ff: list[str] | None = None,
+    keywords_sp: list[str] | None = None,
+    xcontrol_keywords_ff: MutableMapping[str, list[str]] | None = None,
+    xcontrol_keywords_sp: MutableMapping[str, list[str]] | None = None,
+    path: str | Path | None = None,
+) -> float:
+    """Optimise EVB coupling term to fit GFN2-xTB reaction path.
+    Args:
+        elements: TS elements as symbols or numbers
+        coordinates: sequence containing the coordinates of each ground state [Å]
+        topologies: sequence of GFN-FF topologies for each ground state
+        rxn_path: coordinates [Å] along the reaction path
+        n_images: number of structures to generate on the reaction path
+        e_shift: energy shift between GFN2-xTB and GFN-FF reaction energies
+        keywords_ff: xtb command line keywords for GFN-FF calculation
+        keywords_sp: xtb command line keywords for GFN2-xTB calculation
+        xcontrol_keywords_ff: input instructions to write in the xtb xcontrol file for GFN-FF calculation
+        xcontrol_keywords_sp: input instructions to write in the xtb xcontrol file for GFN2-xTB calculation
+        path: folder to save the xtb runs
+    Returns:
+        EVB coupling constant
+    """
+    if path is None:
+        folder = TemporaryDirectory(dir=config.TMP_DIR)
+        xtb_path = Path(folder.name)
+    else:
+        xtb_path = Path(path)
+        if xtb_path.exists():
+            shutil.rmtree(xtb_path)
+        xtb_path.mkdir(parents=True, exist_ok=True)
+    if keywords_ff is None:
+        keywords_ff = []
+    keywords_ff = set(keyword.strip().lower() for keyword in keywords_ff)
+    if "--gfnff" not in keywords_ff:
+        keywords_ff.add("--gfnff")
+
+    if rxn_path is None:
+        rxn_path = interpolate_geodesic(elements, coordinates, n_images=n_images)
+
+    if e_shift is None:
+        e_shift, _, _ = calculate_e_shift_xtb(
+            elements,
+            coordinates,
+            topologies,
+            keywords_ff=keywords_ff,
+            keywords_sp=keywords_sp,
+        )
+
+    gfn2_energies = []
+    gfnff_energies = []
+    for i, coords in enumerate(rxn_path):
+        run_path = xtb_path / "gfn2" / f"image{i+1}"
+        run_xtb(
+            elements,
+            coords,
+            path=run_path,
+            keywords=keywords_sp,
+            xcontrol_keywords=xcontrol_keywords_sp,
+        )
+        gfn2_energies.append(parse_energy(run_path / "xtb.out"))
+
+        energies = []
+        for j, topo in enumerate(topologies):
+            run_path = xtb_path / "gfnff" / f"image{i+1}" / f"{j}"
+            run_path.mkdir(parents=True, exist_ok=True)
+            with open(run_path / "gfnff_topo", "wb") as f:
+                f.write(topo)
+            run_xtb(
+                elements,
+                coords,
+                path=run_path,
+                keywords=keywords_ff,
+                xcontrol_keywords=xcontrol_keywords_ff,
+            )
+            energies.append(parse_energy(run_path / "xtb.out"))
+        gfnff_energies.append(energies)
+
+    # Optimise coupling constant to minimise distance between EVB and GFN2 energies
+    def objective(
+        coupling: float, energies_ff: Array2D, energies_ref: Array1D
+    ) -> float:
+        evb_min_energies = []
+        for e_ff in energies_ff:
+            # Adjust for e_shift
+            e_ff_0 = e_ff[0]
+            e_ff_1 = e_ff[1] + e_shift
+            # Solve EVB
+            energies_ad, _ = evb_eigenvalues([e_ff_0, e_ff_1], coupling=coupling)
+            evb_min_energies.append(energies_ad[0])
+        # Normalise
+        energies_ref_norm = np.array(energies_ref) - energies_ref[0]
+        energies_evb_norm = np.array(evb_min_energies) - evb_min_energies[0]
+        # Calculate MSE
+        residuals = energies_evb_norm - energies_ref_norm
+        return float(np.mean(np.array(residuals) ** 2))
+
+    res = minimize(
+        fun=lambda x: objective(x[0], gfnff_energies, gfn2_energies),
+        x0=np.array([1e-3], float),
+        bounds=[(0.0, None)],
+    )
+    opt_coupling = float(res.x[0])
+
+    return opt_coupling
 
 
 def interpolate_rxn_path(

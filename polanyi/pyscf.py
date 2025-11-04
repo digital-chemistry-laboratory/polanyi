@@ -331,7 +331,8 @@ def ts_from_gfnff(
     if keywords is None:
         keywords = []
     keywords = set([keyword.strip().lower() for keyword in keywords])
-    keywords.add("--gfnff")
+    if "--gfnff" not in keywords:
+        keywords.add("--gfnff")
     results = OptResults()
 
     mole = get_pyscf_mole(elements, coordinates)
@@ -414,7 +415,8 @@ def ts_from_gfnff_ci(
     if keywords is None:
         keywords = []
     keywords = set([keyword.strip().lower() for keyword in keywords])
-    keywords.add("--gfnff")
+    if "--gfnff" not in keywords:
+        keywords.add("--gfnff")
 
     mole = get_pyscf_mole(elements, coordinates)
     topologies = list(topologies)
@@ -498,7 +500,8 @@ def rxn_path_from_gfnff(
     if keywords is None:
         keywords = []
     keywords = set([keyword.strip().lower() for keyword in keywords])
-    keywords.add("--gfnff")
+    if "--gfnff" not in keywords:
+        keywords.add("--gfnff")
 
     results_path = []
     for coords, lam in zip(coordinates, np.linspace(0, 1, len(coordinates))):

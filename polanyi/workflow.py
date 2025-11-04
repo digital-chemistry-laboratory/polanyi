@@ -247,8 +247,9 @@ def setup_gfnff_topologies(  # noqa: C901
     if keywords is None:
         keywords = []
     keywords = set([keyword.strip().lower() for keyword in keywords])
-    # Give the --gfnff keyword (--gfn2 by default)
-    keywords.add("--gfnff")
+    # Give the --gfnff keyword (--gfn2 by default) if not already present
+    if "--gfnff" not in keywords:
+        keywords.add("--gfnff")
 
     if paths is None:
         temp_dirs = [
@@ -496,7 +497,7 @@ def crest_constrained(  # noqa: C901
     return conformer_ensemble
 
 
-def calculate_e_shift_xtb(
+def calculate_e_shift_xtb(  # noqa: C901
     elements: Sequence[int] | Sequence[str],
     coordinates: Sequence[ArrayLike2D],
     topologies: Sequence[bytes],
@@ -527,9 +528,10 @@ def calculate_e_shift_xtb(
     # Set the xtb keywords for the GFN-FF calculations
     if keywords_ff is None:
         keywords_ff = []
-    keywords_ff = set([keyword.strip().lower() for keyword in keywords_ff])
-    # Give the --gfnff keyword (--gfn2 by default)
-    keywords_ff.add("--gfnff")
+    keywords_ff = set(keyword.strip().lower() for keyword in keywords_ff)
+    # Give the --gfnff keyword (--gfn2 by default) if not already present
+    if "--gfnff" not in keywords_ff:
+        keywords_ff.add("--gfnff")
 
     if paths is None:
         temp_dirs = [

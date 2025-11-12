@@ -208,15 +208,11 @@ def opt_ts(  # noqa: C901
         coordinates_guess = rxn_path[n_images // 2]
 
     if fit_coupling:
-        if kw_shift.get("e_diff_ref") is None:
-            e_shift_fit = e_shift
-        else:
-            e_shift_fit = None
         coupling = fit_coupling_const(
             elements,
             coordinates,
             topologies,
-            e_shift=e_shift_fit,
+            e_shift=e_shift,
             rxn_path=rxn_path,
             **kw_coupling,
         )
@@ -620,7 +616,7 @@ def fit_coupling_const(  # noqa: C901
     elements: Sequence[int] | Sequence[str],
     coordinates: Sequence[Array2D],
     topologies: Sequence[bytes],
-    e_shift: float | None = None,
+    e_shift: float,
     rxn_path: list[Array2D] | None = None,
     n_images: int = 9,
     keywords_ff: list[str] | None = None,
@@ -662,15 +658,6 @@ def fit_coupling_const(  # noqa: C901
     if rxn_path is None:
         rxn_path = interpolate_geodesic(elements, coordinates, n_images=n_images)
 
-    if e_shift is None:
-        e_shift, _, _ = calculate_e_shift_xtb(
-            elements,
-            coordinates,
-            topologies,
-            keywords_ff=keywords_ff,
-            keywords_sp=keywords_sp,
-        )
-
     gfn2_energies = []
     gfnff_energies = []
     for i, coords in enumerate(rxn_path):
@@ -698,6 +685,7 @@ def fit_coupling_const(  # noqa: C901
                 xcontrol_keywords=xcontrol_keywords_ff,
             )
             energies.append(parse_energy(run_path / "xtb.out"))
+        energies[-1] += e_shift
         gfnff_energies.append(energies)
 
     # Optimise coupling constant to minimise distance between EVB and GFN2 energies
@@ -706,11 +694,8 @@ def fit_coupling_const(  # noqa: C901
     ) -> float:
         evb_min_energies = []
         for e_ff in energies_ff:
-            # Adjust for e_shift
-            e_ff_0 = e_ff[0]
-            e_ff_1 = e_ff[1] + e_shift
             # Solve EVB
-            energies_ad, _ = evb_eigenvalues([e_ff_0, e_ff_1], coupling=coupling)
+            energies_ad, _ = evb_eigenvalues([e_ff[0], e_ff[1]], coupling=coupling)
             evb_min_energies.append(energies_ad[0])
         # Normalise
         energies_ref_norm = np.array(energies_ref) - energies_ref[0]

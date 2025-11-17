@@ -31,6 +31,9 @@ from polanyi.xtb import (
     opt_crest,
     opt_xtb,
     parse_energy,
+    parse_energy_gxtb,
+    parse_solv_energy,
+    run_gxtb,
     run_xtb,
     wbo_xtb,
 )
@@ -658,7 +661,7 @@ def fit_coupling_const(  # noqa: C901
     if rxn_path is None:
         rxn_path = interpolate_geodesic(elements, coordinates, n_images=n_images)
 
-    gfn2_energies = []
+    ref_energies = []
     gfnff_energies = []
     for i, coords in enumerate(rxn_path):
         run_path = xtb_path / "gfn2" / f"image{i+1}"
@@ -669,7 +672,19 @@ def fit_coupling_const(  # noqa: C901
             keywords=keywords_sp,
             xcontrol_keywords=xcontrol_keywords_sp,
         )
-        gfn2_energies.append(parse_energy(run_path / "xtb.out"))
+        e_solv = parse_solv_energy(run_path / "xtb.out")
+        run_path = xtb_path / "gxtb" / f"image{i+1}"
+        if keywords_sp is not None:
+            for keyword in keywords_sp:
+                if keyword.startswith(("--chrg", "-c")):
+                    charge = int(keyword.split()[-1])
+        run_gxtb(
+            elements,
+            coords,
+            path=run_path,
+            charge=charge,
+        )
+        ref_energies.append(e_solv + parse_energy_gxtb(run_path / "energy"))
 
         energies = []
         for j, topo in enumerate(topologies):
@@ -705,7 +720,7 @@ def fit_coupling_const(  # noqa: C901
         return float(np.mean(np.array(residuals) ** 2))
 
     res = minimize(
-        fun=lambda x: objective(x[0], gfnff_energies, gfn2_energies),
+        fun=lambda x: objective(x[0], gfnff_energies, ref_energies),
         x0=np.array([1e-3], float),
         bounds=[(0.0, None)],
     )

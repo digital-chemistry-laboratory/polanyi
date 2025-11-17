@@ -50,7 +50,7 @@ def run_xtb(  # noqa: C901
                     raise ValueError(
                         f"The sum of the given fragment charges ({fragment_charges}) does not match the given total charge ({keyword.split()[-1]})."
                     )
-        write_chrg(path / ".CHRG", fragment_charges)
+        write_chrg(path / ".CHRG", fragment_charges=fragment_charges)
     with open(path / "xtb.out", "w") as stdout, open(path / "xtb.err", "w") as stderr:
         env = dict(os.environ)
         env["OMP_NUM_THREADS"] = f"{config.OMP_NUM_THREADS},1"
@@ -84,6 +84,43 @@ def run_xtb(  # noqa: C901
                 stderr=stderr,
                 env=env,
             )
+
+    return process
+
+
+def run_gxtb(  # noqa: C901
+    elements: Iterable[int] | Iterable[str],
+    coordinates: ArrayLike2D,
+    path: str | Path | None = None,
+    charge: int | None = None,
+    keywords: Iterable[str] | None = None,
+) -> CompletedProcess:
+    """Run standalone g-xtb from command line."""
+    if keywords is None:
+        keywords = []
+    if path is not None:
+        path = Path(path)
+    else:
+        path = Path.cwd()
+    path.mkdir(exist_ok=True, parents=True)
+
+    write_xyz(path / "gxtb.xyz", elements, coordinates)
+    command = "gxtb -c gxtb.xyz " + " ".join(f"{keyword}" for keyword in keywords)
+    if charge is not None:
+        write_chrg(path / ".CHRG", total_charge=charge)
+    with open(path / "gxtb.out", "w") as stdout, open(path / "gxtb.err", "w") as stderr:
+        env = dict(os.environ)
+        env["OMP_NUM_THREADS"] = f"{config.OMP_NUM_THREADS},1"
+        env["MKL_NUM_THREADS"] = f"{config.OMP_NUM_THREADS}"
+        env["OMP_STACKSIZE"] = config.OMP_STACKSIZE
+        env["OMP_MAX_ACTIVE_LEVELS"] = str(config.OMP_MAX_ACTIVE_LEVELS)
+        process = subprocess.run(
+            command.split(),
+            cwd=path,
+            stdout=stdout,
+            stderr=stderr,
+            env=env,
+        )
 
     return process
 
@@ -153,21 +190,29 @@ def write_xcontrol(
 
 def write_chrg(
     file: str | Path,
-    fragment_charges: list[int],
+    fragment_charges: list[int] | None = None,
+    total_charge: int | None = None,
 ) -> None:
     """Write fragment charges in xtb .CHRG file
     Args:
         file: path to the .CHRG file to create
         fragment_charges: charge of each non-covalently bound (NCI) fragment
+        total_charge: total charge of the system
     Returns:
         None, write .CHRG file
     """
     with open(file, "w") as f:
         # First line must be the total charge of the system
-        f.write(f"{sum(fragment_charges)}\n")
+        if total_charge is not None:
+            f.write(f"{total_charge}\n")
+        elif fragment_charges is not None:
+            f.write(f"{sum(fragment_charges)}\n")
+        else:
+            raise ValueError("Either fragment_charges or total_charge must be given.")
         # Second line must contain the charges of the NCI fragments
-        for charge in fragment_charges:
-            f.write(f"{charge} ")
+        if fragment_charges is not None:
+            for charge in fragment_charges:
+                f.write(f"{charge} ")
 
 
 def opt_xtb(
@@ -489,11 +534,46 @@ def parse_energy(file: str | Path) -> float:
         file: xtb log file
 
     Returns:
-        energy: Energy (a.u.)
+        energy: Energy (Eh)
     """
     with open(file) as f:
         lines = f.readlines()
     for line in lines:
         if "TOTAL ENERGY" in line:
             energy = float(line.strip().split()[3])
+    return energy
+
+
+def parse_solv_energy(file: str | Path) -> float:
+    """Parse solvation energy from xtb log file.
+
+    Args:
+        file: xtb log file
+
+    Returns:
+        energy: Energy (Eh)
+    """
+    with open(file) as f:
+        lines = f.readlines()
+    for line in lines:
+        if "Gsolv" in line:
+            energy = float(line.strip().split()[-3])
+    return energy
+
+
+def parse_energy_gxtb(file: str | Path) -> float:
+    """Parse energy from gxtb log file.
+
+    Args:
+        file: gxtb energy file
+
+    Returns:
+        energy: Energy (Eh)
+    """
+    with open(file) as f:
+        lines = f.readlines()
+    for i, line in enumerate(lines):
+        if "$energy" in line:
+            energy = float(lines[i + 1].strip().split()[1])
+
     return energy

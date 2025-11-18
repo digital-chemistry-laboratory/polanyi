@@ -28,6 +28,7 @@ from polanyi.pyscf import (
 )
 from polanyi.typing import Array1D, Array2D, ArrayLike2D
 from polanyi.xtb import (
+    get_ffnb_lines,
     opt_crest,
     opt_xtb,
     parse_energy,
@@ -38,7 +39,6 @@ from polanyi.xtb import (
     wbo_xtb,
 )
 from polanyi.io import get_xyz_string
-from polanyi.utils import is_min_xtb_version
 
 
 @dataclass
@@ -300,24 +300,7 @@ def setup_gfnff_topologies(  # noqa: C901
 
         # Write topology in xtb xcontrol file if adjacency matrices are given
         if adjacency_matrices is not None:
-
-            # TODO: Update this requirement when xtb >6.7.1 is released
-            if not is_min_xtb_version("bleed"):
-                raise RuntimeError(
-                    "Use bleeding edge version of xtb to give adjacency matrices as input."
-                )
-
-            ffnb_lines = []
-            for atom_idx, row in enumerate(adjacency_matrices[i], 1):
-                neighbours = (
-                    np.nonzero(row)[0] + 1
-                )  # Atoms must be 1-indexed in xcontrol file
-                if len(neighbours) > 0:
-                    ffnb_lines.append(
-                        f"nb = {atom_idx}: {', '.join(map(str, neighbours))}"
-                    )
-                else:
-                    ffnb_lines.append(f"nb = {atom_idx}: 0")
+            ffnb_lines = get_ffnb_lines(adjacency_matrices[i])
             if xcontrol_keywords is not None:
                 xcontrol_keywords = {**xcontrol_keywords, "ffnb": ffnb_lines}
             else:

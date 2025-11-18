@@ -19,6 +19,7 @@ import numpy as np
 from polanyi import config
 from polanyi.io import read_xyz, write_coord, write_xyz
 from polanyi.typing import Array2D, ArrayLike2D
+from polanyi.utils import is_min_xtb_version
 
 
 def run_xtb(  # noqa: C901
@@ -88,7 +89,7 @@ def run_xtb(  # noqa: C901
     return process
 
 
-def run_gxtb(  # noqa: C901
+def run_gxtb(
     elements: Iterable[int] | Iterable[str],
     coordinates: ArrayLike2D,
     path: str | Path | None = None,
@@ -165,6 +166,30 @@ def run_crest(
         )
 
     return process
+
+
+def get_ffnb_lines(adjacency_matrix: Array2D) -> list:
+    """Generate the neighbours list to put in the ffnb block of the xTB xcontrol file.
+    Args:
+        adjacency_matrix: matrix defining the connectivity between each atoms
+    Returns:
+        list of lines to write in the ffnb block of a xcontrol file
+    """
+    # TODO: Update this requirement when xtb >6.7.1 is released
+    if not is_min_xtb_version("bleed"):
+        raise RuntimeError(
+            "Use bleeding edge version of xtb to give adjacency matrices as input."
+        )
+
+    ffnb_lines = []
+    for atom_idx, row in enumerate(adjacency_matrix, 1):
+        neighbours = np.nonzero(row)[0] + 1  # Atoms must be 1-indexed in xcontrol file
+        if len(neighbours) > 0:
+            ffnb_lines.append(f"nb = {atom_idx}: {', '.join(map(str, neighbours))}")
+        else:
+            ffnb_lines.append(f"nb = {atom_idx}: 0")
+
+    return ffnb_lines
 
 
 def write_xcontrol(

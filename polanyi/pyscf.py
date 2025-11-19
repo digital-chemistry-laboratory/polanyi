@@ -145,7 +145,7 @@ def e_g_function(
     results.gradients_adiabatic.append(gradients_ad)
     results.indices.append(indices)
 
-    return energies_ad[1], gradients_ad[1]
+    return energies_ad[0], gradients_ad[0]
 
 
 def e_g_function_ci(
@@ -354,6 +354,7 @@ def ts_from_gfnff(
     with redirect_stdout(StringIO()) as stdout, redirect_stderr(StringIO()) as stderr:
         pyscf_solver.optimize(
             as_pyscf_method(mole, e_g_partial),
+            transition=True,
             maxsteps=maxsteps,
             callback=callback,
             **conv_params,

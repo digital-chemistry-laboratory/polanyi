@@ -145,6 +145,7 @@ def e_g_function(
     results.gradients_adiabatic.append(gradients_ad)
     results.indices.append(indices)
 
+    # Returns the EVB ground state (lowest eigenvalue)
     return energies_ad[0], gradients_ad[0]
 
 

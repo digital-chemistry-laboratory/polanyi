@@ -13,11 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Possibility of giving in a reference reaction energy for the calculation of the energy shift
 - Possibility of giving an adjacency matrix in the `setup_gfnff_topologies` function to write a neighbours list as input for xtb for the topology generation => requires [xtb bleeding edge version](https://github.com/grimme-lab/xtb/releases/tag/bleed)
 - Possibility to give the charges of non-covalently bounded (NCI) fragments as input for the xtb calculations
+- Implementation of fitting the coupling term to minimise the difference between EVB and reference (g-xTB and/or GFN2-xTB) energies
+- Implementation of reaction path interpolation with EVB method
 
 ### Changed
 - All xtb calculations now run from command line instead of using the deprecated `xtb-python` Python API
 - `setup_gfnff_calculators` function renamed in `setup_gfnff_topologies`
 - All functions optimising geometry with xtb now also return the final energy along with the optimised coordinates
+- For PySCF optimisation: `e_g_function` returns the lowest EVB eigenvalue instead of the highest one and `ts_from_gfnff` a true transition state optimisation on the EVB ground state instead of a minimisation of the EVB excited state
 
 
 ### Removed

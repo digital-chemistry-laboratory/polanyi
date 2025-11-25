@@ -524,6 +524,7 @@ def calculate_e_shift_xtb(  # noqa: C901
     keywords_sp: list[str] | None = None,
     xcontrol_keywords_ff: MutableMapping[str, list[str]] | None = None,
     xcontrol_keywords_sp: MutableMapping[str, list[str]] | None = None,
+    use_gxtb: bool = False,
     paths: Sequence[str | Path] | None = None,
 ) -> tuple[float, float, float]:
     """Calculate energy shift between reference (default: GFN2-xTB) and GFN-FF reaction energies.
@@ -533,9 +534,10 @@ def calculate_e_shift_xtb(  # noqa: C901
         topologies: sequence of GFN-FF topologies for each ground state
         e_diff_ref: reference reaction energy [Eh]. If provided, it is used instead of the GFN2-xTB calculation
         keywords_ff: xtb command line keywords for GFN-FF calculation
-        keywords_sp: xtb command line keywords for GFN2-xTB calculation
+        keywords_sp: xtb command line keywords for GFN2-xTB or g-xTB calculation
         xcontrol_keywords_ff: input instructions to write in the xtb xcontrol file for GFN-FF calculation
         xcontrol_keywords_sp: input instructions to write in the xtb xcontrol file for GFN2-xTB calculation
+        use_gxtb: whether to use g-xTB instead of GFN2-xTB for reference single-point calculations
         paths: list of folders to save the xtb runs
     Returns:
         e_shift: difference between the GFN2-xTB and GFN-FF reaction energies
@@ -589,8 +591,24 @@ def calculate_e_shift_xtb(  # noqa: C901
                 keywords=keywords_sp,
                 xcontrol_keywords=xcontrol_keywords_sp,
             )
-            energy = parse_energy(xtb_path / "xtb.out")
-            energies_sp.append(energy)
+            if not use_gxtb:
+                energy = parse_energy(xtb_path / "xtb.out")
+                energies_sp.append(energy)
+            else:
+                e_solv = parse_solv_energy(xtb_path / "xtb.out")
+                charge = None
+                if keywords_sp is not None:
+                    for keyword in keywords_sp:
+                        if keyword.startswith(("--chrg", "-c")):
+                            charge = int(keyword.split()[-1])
+                run_gxtb(
+                    elements,
+                    coordinates_,
+                    path=xtb_path,
+                    charge=charge,
+                )
+                energy = parse_energy_gxtb(xtb_path / "energy")
+                energies_sp.append(energy + e_solv)
 
     if paths is None:
         for temp_dir in temp_dirs:
@@ -663,6 +681,7 @@ def fit_coupling_const(  # noqa: C901
         )
         e_solv = parse_solv_energy(run_path / "xtb.out")
         run_path = xtb_path / "gxtb" / f"image{i+1}"
+        charge = None
         if keywords_sp is not None:
             for keyword in keywords_sp:
                 if keyword.startswith(("--chrg", "-c")):

@@ -12,7 +12,7 @@ from pathlib import Path
 import tempfile
 from tempfile import TemporaryDirectory
 import shutil
-from typing import Any
+from typing import Any, Literal
 
 import geometric
 from geometric.engine import ConicalIntersection
@@ -71,6 +71,7 @@ def e_g_function(
     xcontrol_keywords: MutableMapping[str, list[str]] | None = None,
     e_shift: float = 0,
     coupling: float = 0,
+    state: Literal["ground", "excited"] = "ground",
     path: str | Path | None = None,
 ) -> tuple[float, Array2D]:
     """Calculate energy and gradient from GFN-FF and then solving eigenvalues of EVB.
@@ -82,6 +83,7 @@ def e_g_function(
         xcontrol_keywords: input instructions to write in the xtb xcontrol file
         e_shift: energy shift between GFN2-xTB and GFN-FF reaction energy
         coupling: coupling constant between the ground states force fields
+        state: whether to return the energy and gradient of the EVB ground or excited state
         path: path where to run calculations
     Returns:
         tuple of adiabatic energy and gradient
@@ -145,8 +147,13 @@ def e_g_function(
     results.gradients_adiabatic.append(gradients_ad)
     results.indices.append(indices)
 
-    # Returns the EVB ground state (lowest eigenvalue)
-    return energies_ad[0], gradients_ad[0]
+    # Returns the EVB ground or excited state
+    if state == "ground":
+        return energies_ad[0], gradients_ad[0]
+    elif state == "excited":
+        return energies_ad[1], gradients_ad[1]
+    else:
+        raise ValueError("State must be either 'ground' or 'excited'.")
 
 
 def e_g_function_ci(
@@ -301,6 +308,7 @@ def ts_from_gfnff(
     coupling: float = 0.001,
     maxsteps: int = 100,
     callback: Callable[[dict[str, Any]], None] | None = None,
+    state: Literal["ground", "excited"] = "ground",
     conv_params: dict[str, Any] | None = None,
     solver: str = "geometric",
     path: str | Path | None = None,
@@ -316,6 +324,7 @@ def ts_from_gfnff(
         coupling: coupling constant between the ground states force fields
         maxsteps: maximum number of optimization steps
         callback: function to call after each optimization step
+        state: whether to optimize the ground or excited EVB state
         conv_params: convergence parameters for PySCF optimization
         solver: PySCF optimization solver (geometric or pyberny)
         path: path where to run calculations
@@ -334,6 +343,12 @@ def ts_from_gfnff(
     keywords = set([keyword.strip().lower() for keyword in keywords])
     if "--gfnff" not in keywords:
         keywords.add("--gfnff")
+    if state == "excited":
+        ts_opt = False
+    elif state == "ground":
+        ts_opt = True
+    else:
+        raise ValueError("State must be either 'ground' or 'excited'.")
     results = OptResults()
 
     mole = get_pyscf_mole(elements, coordinates)
@@ -355,7 +370,7 @@ def ts_from_gfnff(
     with redirect_stdout(StringIO()) as stdout, redirect_stderr(StringIO()) as stderr:
         pyscf_solver.optimize(
             as_pyscf_method(mole, e_g_partial),
-            transition=True,
+            transition=ts_opt,
             maxsteps=maxsteps,
             callback=callback,
             **conv_params,

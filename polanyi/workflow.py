@@ -222,11 +222,11 @@ def opt_ts(  # noqa: C901
         kw_opt["coupling"] = coupling
 
         # For geomeTRIC TS search, the first 6N steps are Hessian calculations and the optimisation starts only afterwards
-        if kw_opt.get("maxsteps") is not None:
-            kw_opt["maxsteps"] = max(len(elements) * 6 + 100, kw_opt["maxsteps"])
-        else:
-            kw_opt["maxsteps"] = len(elements) * 6 + 100
-
+        if kw_opt.get("state") == "ground":
+            if kw_opt.get("maxsteps") is not None:
+                kw_opt["maxsteps"] = max(len(elements) * 6 + 100, kw_opt["maxsteps"])
+            else:
+                kw_opt["maxsteps"] = len(elements) * 6 + 100
     opt_results = ts_from_gfnff(
         elements, coordinates_guess, topologies, e_shift=e_shift, **kw_opt
     )

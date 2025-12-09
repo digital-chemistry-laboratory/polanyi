@@ -324,7 +324,7 @@ def ts_from_gfnff(
         coupling: coupling constant between the ground states force fields
         maxsteps: maximum number of optimization steps
         callback: function to call after each optimization step
-        state: whether to optimize the ground or excited EVB state
+        state: whether to optimise the ground or excited EVB state
         conv_params: convergence parameters for PySCF optimization
         solver: PySCF optimization solver (geometric or pyberny)
         path: path where to run calculations
@@ -348,7 +348,7 @@ def ts_from_gfnff(
     elif state == "ground":
         ts_opt = True
     else:
-        raise ValueError("State must be either 'ground' or 'excited'.")
+        raise ValueError("State to optimise must be either 'ground' or 'excited'.")
     results = OptResults()
 
     mole = get_pyscf_mole(elements, coordinates)
@@ -360,6 +360,7 @@ def ts_from_gfnff(
         xcontrol_keywords=xcontrol_keywords,
         e_shift=e_shift,
         coupling=coupling,
+        state=state,
         path=path,
     )
 

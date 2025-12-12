@@ -292,13 +292,12 @@ def setup_gfnff_topologies(  # noqa: C901
         ]
         xtb_paths = [Path(temp_dir.name) for temp_dir in temp_dirs]
     else:
-        if (Path(paths[0]) / "gfnff_topo").exists() or (
-            Path(paths[1]) / "gfnff_topo"
-        ).exists():
-            raise FileExistsError(
-                f"Paths {paths[0]} or {paths[1]} already contain 'gfnff_topo' files. Remove before new xtb calculations."
-                f"\nIf other files are present, they will be overwritten."
-            )
+        for path in paths:
+            if (Path(path) / "gfnff_topo").exists():
+                raise FileExistsError(
+                    f"Path {path} already contains 'gfnff_topo' files. Remove before new xtb calculations."
+                    f"\nIf other files are present, they will be overwritten."
+                )
         xtb_paths = [Path(path) for path in paths]
 
     topologies = []

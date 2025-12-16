@@ -733,6 +733,9 @@ def fit_coupling_const(  # noqa: C901
     )
     opt_coupling = float(res.x[0])
 
+    if path is None:
+        folder.cleanup()
+
     return opt_coupling
 
 

@@ -634,14 +634,14 @@ def fit_coupling_const(  # noqa: C901
     xcontrol_keywords_sp: MutableMapping[str, list[str]] | None = None,
     path: str | Path | None = None,
 ) -> float:
-    """Optimise EVB coupling term to fit GFN2-xTB reaction path.
+    """Optimise EVB coupling term to fit g-xTB reaction path (GFN2-xTB for solvent).
     Args:
         elements: TS elements as symbols or numbers
         coordinates: sequence containing the coordinates of each ground state [Å]
         topologies: sequence of GFN-FF topologies for each ground state
         rxn_path: coordinates [Å] along the reaction path
         n_images: number of structures to generate on the reaction path
-        e_shift: energy shift between GFN2-xTB and GFN-FF reaction energies
+        e_shift: energy shift between ref and GFN-FF reaction energies
         keywords_ff: xtb command line keywords for GFN-FF calculation
         keywords_sp: xtb command line keywords for GFN2-xTB calculation
         xcontrol_keywords_ff: input instructions to write in the xtb xcontrol file for GFN-FF calculation
@@ -710,7 +710,7 @@ def fit_coupling_const(  # noqa: C901
         energies[-1] += e_shift
         gfnff_energies.append(energies)
 
-    # Optimise coupling constant to minimise distance between EVB and GFN2 energies
+    # Optimise coupling constant to minimise distance between EVB and g-xTB energies
     def objective(
         coupling: float, energies_ff: Array2D, energies_ref: Array1D
     ) -> float:
